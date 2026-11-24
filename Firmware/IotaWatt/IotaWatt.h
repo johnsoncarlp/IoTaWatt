@@ -18,7 +18,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.   
 ***********************************************************************************/
+#ifndef IOTAWATT_VERSION                    // Overridable from the build (exactly 8 chars: release file format)
 #define IOTAWATT_VERSION "02_08_04"
+#endif
 #define DEVICE_NAME "IotaWatt"
 
 #define PRINT(txt,val) Serial.print(txt); Serial.print(val);      // Quick debug aids
