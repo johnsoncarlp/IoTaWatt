@@ -846,7 +846,11 @@ void sendMsgFile(File &dataFile, int32_t relPos){
     server.setContentLength(dataFile.size() - absPos);
     server.send(200, txtPlain_P, "");
     WiFiClient _client = server.client();
+#ifdef CORE_3_0
+    dataFile.sendAll(_client);                // core 3: WiFiClient::write(Stream&) is deprecated
+#else
     _client.write(dataFile);
+#endif
 }
 
 
