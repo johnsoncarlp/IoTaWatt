@@ -340,7 +340,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     _heap = jBool(config[F("heap")]);
     delete[] _bucket;
     _bucket = charstar(jStr(config[F("bucket")]));
-    if (strlen(_bucket) == 0)
+    if ( ! _bucket || strlen(_bucket) == 0)
     {
         log("%s: Bucket not specified", _id);
         return false;
