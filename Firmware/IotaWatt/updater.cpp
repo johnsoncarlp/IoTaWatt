@@ -120,9 +120,10 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
         }
         return UTCtime() + 301;
       }
-      DynamicJsonBuffer Json;
-      JsonObject& response = Json.parseObject(responseText);
-      if( ! response.success()){
+      JsonDocument Json;
+      DeserializationError jsonError = deserializeJson(Json, responseText);
+      JsonObject response = Json.as<JsonObject>();
+      if(jsonError || response.isNull()){
         if(!parseError){
           log("Updater: could not parse versions.json file.");
         }
@@ -135,8 +136,8 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
 
       // Check for "classes" object
 
-      JsonObject& classes = response[F("classes")];
-      if( ! classes.success()){
+      JsonObject classes = response[F("classes")];
+      if(classes.isNull()){
         if(!parseError){
           log("Updater: versions.json is invalid.");
         }
@@ -148,8 +149,8 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
 
             // Check if response contains the configured auto-update class
 
-      if(classes.containsKey(updateClass)){
-        updateVersion = classes[updateClass].as<char*>();
+      if( ! classes[updateClass].isNull()){
+        updateVersion = classes[updateClass].as<const char*>();
         if(updateVersion.equals(IOTAWATT_VERSION)){
           if( ! upToDate){
             log("Updater: Auto-update is current for class %s.", updateClass);
@@ -169,8 +170,8 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
 
             // Check tables file version
 
-      if(response.containsKey(F("tables"))){
-        latestTableVersion = parseSemanticVersion(response[F("tables")].as<char *>());
+      if( ! response[F("tables")].isNull()){
+        latestTableVersion = parseSemanticVersion(response[F("tables")].as<const char *>());
         if (latestTableVersion > tableVersion){
           log("Updater: update tables from %s to %s", displaySemanticVersion(tableVersion).c_str(), displaySemanticVersion(latestTableVersion).c_str());
           state = getTable;
@@ -592,18 +593,18 @@ long getTablesVersion(){
   if(!tableFile){
     return -1;
   }
-  DynamicJsonBuffer Json;
+  JsonDocument Json;
   String tableSummary = JsonSummary(tableFile, 1);
-  JsonObject& table = Json.parseObject(tableSummary);
+  DeserializationError jsonError = deserializeJson(Json, tableSummary);
+  JsonObject table = Json.as<JsonObject>();
   tableFile.close();
 
-  if (!table.success()) {
+  if (jsonError || table.isNull()) {
     log("Table file parse failed.");
     return -1;
   }
-  JsonObject &version = table[F("version")];
-  if(table.containsKey(F("version"))){
-    return parseSemanticVersion(table[F("version")].as<char*>());
+  if( ! table[F("version")].isNull()){
+    return parseSemanticVersion(table[F("version")].as<const char*>());
   }
   return -1;
 }

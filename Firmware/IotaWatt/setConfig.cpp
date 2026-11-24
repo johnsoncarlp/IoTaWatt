@@ -69,7 +69,7 @@ bool recoverConfig(){
 //*************************************************************************************************
 
 boolean setConfig(const char* configPath){
-  DynamicJsonBuffer Json;              
+  JsonDocument Json;
         
   //************************************** Load and parse Json Config file ************************
 
@@ -81,9 +81,10 @@ boolean setConfig(const char* configPath){
   }
   hashFile(configSHA256, ConfigFile);
   String configSummary = JsonSummary(ConfigFile, 1);
-  JsonObject& Config = Json.parseObject(configSummary);
+  DeserializationError parseError = deserializeJson(Json, configSummary);
+  JsonObject Config = Json.as<JsonObject>();
   trace(T_CONFIG,4);
-  if (!Config.success()) {
+  if (parseError || Config.isNull()) {
     log("Config file parse failed.");
     return false;
   }
@@ -93,17 +94,17 @@ boolean setConfig(const char* configPath){
   delete[] updateClass;
   updateClass = charstar(Config[F("update")] | "NONE");
 
-  localTimeDiff = 60.0 * Config[F("timezone")].as<float>();
+  localTimeDiff = 60.0 * jFloat(Config[F("timezone")]);
     
-  if(Config.containsKey("logdays")){ 
-    log("Current log overide days: %d", Current_log.setDays(Config[F("logdays")].as<int>()));
+  if( ! Config["logdays"].isNull()){ 
+    log("Current log overide days: %d", Current_log.setDays(jInt<int>(Config[F("logdays")])));
   }      
 
   //************************************ Configure device ***************************
 
   trace(T_CONFIG,5);
-  JsonArray& deviceArray = Config[F("device")];
-  if(deviceArray.success()){
+  JsonArray deviceArray = Config[F("device")];
+  if( ! deviceArray.isNull()){
     char* deviceStr = JsonDetail(ConfigFile, deviceArray);
     configDevice(deviceStr);
     delete[] deviceStr;
@@ -114,8 +115,8 @@ boolean setConfig(const char* configPath){
   trace(T_CONFIG,10);
   delete timezoneRule;
   timezoneRule = nullptr;
-  JsonArray& dstruleArray = Config[F("dstrule")];
-  if(dstruleArray.success()){
+  JsonArray dstruleArray = Config[F("dstrule")];
+  if( ! dstruleArray.isNull()){
     char* dstruleStr = JsonDetail(ConfigFile, dstruleArray);
     configDST(dstruleStr);
     delete[] dstruleStr;
@@ -124,8 +125,8 @@ boolean setConfig(const char* configPath){
   //************************************ Configure input channels ***************************
 
   trace(T_CONFIG,15);
-  JsonArray& inputsArray = Config[F("inputs")];
-  if(inputsArray.success()){
+  JsonArray inputsArray = Config[F("inputs")];
+  if( ! inputsArray.isNull()){
     char* inputsStr = JsonDetail(ConfigFile, inputsArray);
     configInputs(inputsStr);
     delete[] inputsStr;
@@ -140,9 +141,9 @@ boolean setConfig(const char* configPath){
 
   {      
     trace(T_CONFIG,25);
-    JsonArray& integratorsArray = Config[F("integrators")];
+    JsonArray integratorsArray = Config[F("integrators")];
     char* integratorsStr;
-    if(integratorsArray.success()){
+    if( ! integratorsArray.isNull()){
       integratorsStr = JsonDetail(ConfigFile, integratorsArray);
     } else {
       integratorsStr = charstar("[]");
@@ -158,9 +159,9 @@ boolean setConfig(const char* configPath){
     delete outputs;
     outputs = nullptr;
     trace(T_CONFIG,30,1);
-    JsonArray& outputsArray = Config[F("outputs")];
+    JsonArray outputsArray = Config[F("outputs")];
     char* outputsStr;
-    if(outputsArray.success()){
+    if( ! outputsArray.isNull()){
       outputsStr = JsonDetail(ConfigFile, outputsArray);
     } else {
       outputsStr = charstar("[]");
@@ -182,8 +183,8 @@ boolean setConfig(const char* configPath){
       for (int j = 0; uploader_names[i][j]; j++){
         uploader_name_lower[j] = tolower(uploader_names[i][j]);
       }
-      JsonArray &uploader_array = Config[uploader_name_lower];
-      if(uploader_array.success()){
+      JsonArray uploader_array = Config[uploader_name_lower];
+      if( ! uploader_array.isNull()){
         trace(T_CONFIG,35,1);
         char* config_json = JsonDetail(ConfigFile, uploader_array);
         trace(T_CONFIG,35,2);
@@ -208,8 +209,8 @@ boolean setConfig(const char* configPath){
 
   {
     trace(T_CONFIG,50);
-    JsonArray& PVoutputArray = Config[F("pvoutput")];
-    if(PVoutputArray.success()){
+    JsonArray PVoutputArray = Config[F("pvoutput")];
+    if( ! PVoutputArray.isNull()){
       char* PVoutputStr = JsonDetail(ConfigFile, PVoutputArray);
       if(! PVoutput){
         PVoutput = new PVoutput_uploader();
@@ -227,8 +228,8 @@ boolean setConfig(const char* configPath){
       //***************************************** configure simsolar ***************************************
 
     trace(T_CONFIG,55);
-    JsonArray& simSolarArray = Config[F("simsolar")];
-    if(simSolarArray.success()){
+    JsonArray simSolarArray = Config[F("simsolar")];
+    if( ! simSolarArray.isNull()){
       char* simSolarStr = JsonDetail(ConfigFile, simSolarArray);
       configSimSolar(simSolarStr);
       delete[] simSolarStr;
@@ -248,17 +249,18 @@ boolean setConfig(const char* configPath){
 }  // End of setConfig
 
 bool configSimSolar(const char* JsonStr){
-  DynamicJsonBuffer Json;
-  JsonObject& simConfig = Json.parseObject(JsonStr);
-  if( ! simConfig.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonObject simConfig = Json.as<JsonObject>();
+  if(parseError || simConfig.isNull()){
     log("simsolar: Json parse failed");
   }
   if( ! simsolar){
     simsolar = new simSolar;
   }
-  uint32_t sunrise = simConfig["sunrise"].as<int>();
-  uint32_t sunset = simConfig["sunset"].as<int>();
-  uint32_t power = simConfig["power"].as<int>();
+  uint32_t sunrise = jInt<int>(simConfig["sunrise"]);
+  uint32_t sunset = jInt<int>(simConfig["sunset"]);
+  uint32_t power = jInt<int>(simConfig["power"]);
   simsolar->config(sunrise, sunset, power);
   return true;
 } 
@@ -272,22 +274,23 @@ bool configDevice(const char* JsonStr){
   ADC_selectPin[1] = pin_CS_ADC1;
 
   int channels = 15; 
-  DynamicJsonBuffer Json;
-  JsonObject& device = Json.parseObject(JsonStr);
-  if( ! device.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonObject device = Json.as<JsonObject>();
+  if(parseError || device.isNull()){
     log("device: Json parse failed");
   }
-  if(device.containsKey(F("name"))){
+  if( ! device[F("name")].isNull()){
     delete[] deviceName;
-    deviceName = charstar(device[F("name")].as<char*>());
+    deviceName = charstar(device[F("name")].as<const char*>());
   }
       
-  if(device.containsKey(F("refvolts"))){
-    VrefVolts = device[F("refvolts")].as<float>();
+  if( ! device[F("refvolts")].isNull()){
+    VrefVolts = jFloat(device[F("refvolts")]);
   } 
           
   trace(T_CONFIG,5);
-  channels = MIN((device[F("channels")].as<unsigned int>() | MAXINPUTS), MAXINPUTS);
+  channels = MIN((jInt<unsigned int>(device[F("channels")]) | MAXINPUTS), MAXINPUTS);
   
             // If first time after restart
             // Instantiate the inputs
@@ -313,15 +316,15 @@ bool configDevice(const char* JsonStr){
 
         // Override all defaults with user specification
  
-  if(device.containsKey(F("chanaddr"))){
+  if( ! device[F("chanaddr")].isNull()){
     for(int i=0; i<MIN(maxInputs,device[F("chanaddr")].size()); i++){
-      inputChannel[i]->_addr = device[F("chanaddr")][i].as<unsigned int>();
+      inputChannel[i]->_addr = jInt<unsigned int>(device[F("chanaddr")][i]);
     }
   }
   
-  if(device.containsKey(F("chanaref"))){
+  if( ! device[F("chanaref")].isNull()){
     for(int i=0; i<MIN(maxInputs,device[F("chanaddr")].size()); i++){
-      inputChannel[i]->_aRef = device[F("chanaref")][i].as<unsigned int>();
+      inputChannel[i]->_aRef = jInt<unsigned int>(device[F("chanaref")][i]);
     }
   }
           // Get burden values.
@@ -332,23 +335,25 @@ bool configDevice(const char* JsonStr){
   const char burdenFileName[] = "/config/device/burden.txt";
   if(spiffsFileExists(burdenFileName)){
     String JsonBurden = spiffsRead(burdenFileName);
-    JsonArray& burden = Json.parseArray(JsonBurden);
+    JsonDocument burdenDoc;
+    deserializeJson(burdenDoc, JsonBurden);
+    JsonArray burden = burdenDoc.as<JsonArray>();
     for(int i=0; i<MIN(maxInputs,burden.size()); i++){
-      inputChannel[i]->_burden = burden[i].as<float>();
+      inputChannel[i]->_burden = jFloat(burden[i]);
     }
   }
-  else if(device.containsKey(F("burden"))){
+  else if( ! device[F("burden")].isNull()){
     String JsonBurden;
-    device[F("burden")].printTo(JsonBurden);
+    serializeJson(device[F("burden")], JsonBurden);
     spiffsWrite(burdenFileName, JsonBurden);
     for(int i=0; i<MIN(maxInputs,device[F("burden")].size()); i++){
-      inputChannel[i]->_burden = device[F("burden")][i].as<float>();
+      inputChannel[i]->_burden = jFloat(device[F("burden")][i]);
     }
   }
 
   delete[] HTTPSproxy;
   HTTPSproxy = nullptr;
-  if(device.containsKey(F("httpsproxy"))){
+  if( ! device[F("httpsproxy")].isNull()){
     HTTPSproxy = charstar(device[F("httpsproxy")].as<const char *>());
   }
   return true;
@@ -357,23 +362,24 @@ bool configDevice(const char* JsonStr){
 //********************************** configure DST *********************************************
 
 bool configDST(const char* JsonStr){
-  DynamicJsonBuffer Json;
-  JsonVariant dstRule = Json.parse(JsonStr);
-  if( ! dstRule.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonVariant dstRule = Json.as<JsonVariant>();
+  if(parseError){
     log("DST: Json parse failed");
     return false;
   }
   timezoneRule = new tzRule;
-  timezoneRule->useUTC = dstRule[F("utc")].as<bool>();
-  timezoneRule->adjMinutes = dstRule[F("adj")].as<int>();
-  timezoneRule->begPeriod.month = dstRule["begin"]["month"].as<int>();
-  timezoneRule->begPeriod.weekday = dstRule["begin"]["weekday"].as<int>();
-  timezoneRule->begPeriod.instance = dstRule["begin"]["instance"].as<int>();
-  timezoneRule->begPeriod.time = dstRule["begin"]["time"].as<int>();
-  timezoneRule->endPeriod.month = dstRule["end"]["month"].as<int>();
-  timezoneRule->endPeriod.weekday = dstRule["end"]["weekday"].as<int>();
-  timezoneRule->endPeriod.instance = dstRule["end"]["instance"].as<int>();
-  timezoneRule->endPeriod.time = dstRule["end"]["time"].as<int>();
+  timezoneRule->useUTC = jBool(dstRule[F("utc")]);
+  timezoneRule->adjMinutes = jInt<int>(dstRule[F("adj")]);
+  timezoneRule->begPeriod.month = jInt<int>(dstRule["begin"]["month"]);
+  timezoneRule->begPeriod.weekday = jInt<int>(dstRule["begin"]["weekday"]);
+  timezoneRule->begPeriod.instance = jInt<int>(dstRule["begin"]["instance"]);
+  timezoneRule->begPeriod.time = jInt<int>(dstRule["begin"]["time"]);
+  timezoneRule->endPeriod.month = jInt<int>(dstRule["end"]["month"]);
+  timezoneRule->endPeriod.weekday = jInt<int>(dstRule["end"]["weekday"]);
+  timezoneRule->endPeriod.instance = jInt<int>(dstRule["end"]["instance"]);
+  timezoneRule->endPeriod.time = jInt<int>(dstRule["end"]["time"]);
 
   /******************************************************************************************************************************
    * 
@@ -407,38 +413,39 @@ bool configDST(const char* JsonStr){
 
 //********************************** configInputs ***********************************************
 bool configInputs(const char* JsonStr){
-  DynamicJsonBuffer Json;
-  JsonVariant JsonInputs = Json.parse(JsonStr);
-  if( ! JsonInputs.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonVariant JsonInputs = Json.as<JsonVariant>();
+  if(parseError){
     log("inputs: Json parse failed");
     return false;
   }
 
   for(int i=0; i<MIN(maxInputs,JsonInputs.size()); i++) {
     if(JsonInputs[i].is<JsonObject>()){
-      JsonObject& input = JsonInputs[i].as<JsonObject&>();
-      if(i != input["channel"].as<int>()){
+      JsonObject input = JsonInputs[i].as<JsonObject>();
+      if(i != jInt<int>(input["channel"])){
         log("Config input channel mismatch: %d", i);
         continue;
       }
       delete inputChannel[i]->_name;
-      inputChannel[i]->_name = charstar(input[F("name")].as<char*>());
+      inputChannel[i]->_name = charstar(input[F("name")].as<const char*>());
       delete inputChannel[i]->_model;
-      inputChannel[i]->_model = charstar(input[F("model")].as<char*>());
+      inputChannel[i]->_model = charstar(input[F("model")].as<const char*>());
       // Fix name change that removed (USA) in table
       if(strcmp_P(inputChannel[i]->_model,PSTR("TDC DA-10-09(USA)")) == 0){
         inputChannel[i]->_model[12] = 0;
       }
-      inputChannel[i]->_turns = input[F("turns")].as<float>();
-      inputChannel[i]->_calibration = input[F("cal")].as<float>();
+      inputChannel[i]->_turns = jFloat(input[F("turns")]);
+      inputChannel[i]->_calibration = jFloat(input[F("cal")]);
       if(inputChannel[i]->_turns && inputChannel[i]->_burden){
         inputChannel[i]->_calibration = inputChannel[i]->_turns / inputChannel[i]->_burden;
       }
-      inputChannel[i]->_phase = input[F("phase")].as<float>();
-      inputChannel[i]->_vphase = input[F("vphase")].as<float>();
-      inputChannel[i]->_vchannel = input.containsKey("vref") ? input["vref"].as<int>() : 0;
+      inputChannel[i]->_phase = jFloat(input[F("phase")]);
+      inputChannel[i]->_vphase = jFloat(input[F("vphase")]);
+      inputChannel[i]->_vchannel = ( ! input["vref"].isNull()) ? jInt<int>(input["vref"]) : 0;
       inputChannel[i]->active(true);
-      String type = input[F("type")];
+      String type = input[F("type")] | "";
       inputChannel[i]->_reverse = input[F("reverse")] | false;
       if(type == "VT") {
         inputChannel[i]->_type = channelTypeVoltage; 
@@ -446,15 +453,15 @@ bool configInputs(const char* JsonStr){
       }
       else if (type == "CT"){
         inputChannel[i]->_type = channelTypePower;
-        inputChannel[i]->_vchannel = input[F("vchan")].as<int>();
+        inputChannel[i]->_vchannel = jInt<int>(input[F("vchan")]);
         inputChannel[i]->_signed = input[F("signed")] | false;
         inputChannel[i]->_double = input[F("double")] | false;
       }  
       else{
         log("unsupported input type: %s", type.c_str());
       }
-      if(input.containsKey(F("vmult"))){
-        inputChannel[i]->_vmult = input[F("vmult")].as<float>();
+      if( ! input[F("vmult")].isNull()){
+        inputChannel[i]->_vmult = jFloat(input[F("vmult")]);
       } 
       else {
         inputChannel[i]->_vmult = 1.0;
@@ -477,9 +484,10 @@ bool configIntegrators(const char* JsonStr){
 
       // Create new ScriptSet from Json config
 
-  DynamicJsonBuffer Json;
-  JsonArray& integratorsArray = Json.parseArray(JsonStr);
-  if( ! integratorsArray.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonArray integratorsArray = Json.as<JsonArray>();
+  if(parseError || integratorsArray.isNull()){
     log("integrators: Json parse failed");
     return false;
   }
@@ -541,11 +549,12 @@ bool configIntegrators(const char* JsonStr){
 //********************************** configOutputs ***********************************************
 
 bool configOutputs(const char* JsonStr){
-  DynamicJsonBuffer Json;
+  JsonDocument Json;
   trace(T_CONFIG,31);
-  JsonArray& outputsArray = Json.parseArray(JsonStr);
+  DeserializationError parseError = deserializeJson(Json, JsonStr);
+  JsonArray outputsArray = Json.as<JsonArray>();
   trace(T_CONFIG,31,1);
-  if( ! outputsArray.success()){
+  if(parseError || outputsArray.isNull()){
     log("outputs: Json parse failed");
     return false;
   }

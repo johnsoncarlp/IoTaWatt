@@ -67,11 +67,11 @@ void PVoutput_uploader::end(){
         // Get the current status as a Json object.
 
 void PVoutput_uploader::getStatusJson(JsonObject& status){
-    status.set(F("id"), _id);
-    status.set(F("status"), (_started && _state != stopped) ? "running" : "stopped");
-    status.set(F("lastpost"),local2UTC(_lastPostTime));
+    status[F("id")] = _id;
+    status[F("status")] = (_started && _state != stopped) ? "running" : "stopped";
+    status[F("lastpost")] = local2UTC(_lastPostTime);
     if(_statusMessage){
-        status.set(F("message"), _statusMessage);
+        status[F("message")] = _statusMessage;
     }
 }
 
@@ -714,9 +714,10 @@ uint32_t PVoutput_uploader::tickLimitWait(){
 //
 //********************************************************************************************************************
 bool PVoutput_uploader::config(const char* configObj){
-    DynamicJsonBuffer Json;
-    JsonObject& config = Json.parseObject(configObj);
-    if( ! config.success()){
+    JsonDocument Json;
+    DeserializationError parseError = deserializeJson(Json, configObj);
+    JsonObject config = Json.as<JsonObject>();
+    if(parseError || config.isNull()){
         log("%s: Json parse failed.", _id);
         return false; 
     }
@@ -725,25 +726,25 @@ bool PVoutput_uploader::config(const char* configObj){
         return false;
     }
     trace(T_PVoutput,201);
-    if(_revision == config["revision"]){
+    if(_revision == jInt<int32_t>(config["revision"])){
         return true;
     }
-    _revision = config["revision"];
-    _reload = config["reload"].as<bool>();
+    _revision = jInt<int32_t>(config["revision"]);
+    _reload = jBool(config["reload"]);
     if(_reload && _started){
         _restart = true;
     }
-    _stop = config["stop"].as<bool>();
+    _stop = jBool(config["stop"]);
     trace(T_PVoutput,202);
-    _beginPosting = config.get<uint32_t>("begdate");
+    _beginPosting = jInt<uint32_t>(config["begdate"]);
     delete[] _apiKey;
-    _apiKey = charstar(config["apikey"].as<char*>());
+    _apiKey = charstar(config["apikey"].as<const char*>());
     delete[] _systemID;
-    _systemID = charstar(config["systemid"].as<char*>());
+    _systemID = charstar(config["systemid"].as<const char*>());
     trace(T_PVoutput,203);
     delete _outputs;
     JsonVariant var = config["outputs"];
-    if(var.success()){
+    if( ! var.isNull()){
         trace(T_PVoutput,204);
         _outputs = new ScriptSet(var.as<JsonArray>());
     }

@@ -22,7 +22,7 @@ void   base64encode(xbuf* buf);                     // Convert the contents of a
 String base64encode(const uint8_t* in, size_t len); // Convert the input buffer to a base64 String
 
 String JsonSummary(File file, int depth);           // Read a json file and return a summary Json string              
-char*  JsonDetail(File file, JsonArray& locator);   // Read and compress a detail segment of a json file
+char*  JsonDetail(File file, JsonArray locator);    // Read and compress a detail segment of a json file
 
 String localDateString(uint32_t UNIXtime);          // Convert unixtime to a local data/time string
 uint32_t Unixtime(int year, uint8_t month, uint8_t day, uint8_t hour=0, uint8_t minute=0, uint8_t second=0); // Convert YMDhms to unixtime

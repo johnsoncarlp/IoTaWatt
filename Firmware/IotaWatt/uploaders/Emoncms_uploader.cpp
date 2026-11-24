@@ -358,20 +358,20 @@ void Emoncms_uploader::setRequestHeaders(){
 bool Emoncms_uploader::configCB(JsonObject& config){
     
     trace(T_Emoncms,100);
-    const char *apikey = config["apikey"].as<char *>();
+    const char *apikey = config["apikey"].as<const char *>();
     if(!apikey){
         log("%s, apikey not specified.", _id);
         return false;
     }
     hex2bin(_cryptoKey, apikey, 16);
     delete[] _node;
-    _node = charstar(config["node"].as<char*>());
+    _node = charstar(config["node"].as<const char*>());
     if( ! _node){
         log("%s, node not specified.", _id);
         return false; 
     }
     delete[] _userID;
-    _userID = charstar(config["userid"].as<char*>());
+    _userID = charstar(config["userid"].as<const char*>());
     if(!_userID || strlen(_userID) == 0){
         _encrypt = false;
         delete[] _sha256;

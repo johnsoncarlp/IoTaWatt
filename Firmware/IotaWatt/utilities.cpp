@@ -232,13 +232,13 @@ String  JsonSummary(File file, int depth){
     return JsonOut.readString();
 }
 
-char*  JsonDetail(File file, JsonArray& locator){
+char*  JsonDetail(File file, JsonArray locator){
     bool    string = false;
     bool    escape = false;
-    int segLen = locator[1].as<int>();
+    int segLen = jInt<int>(locator[1]);
     char* out = new char[segLen+1];
     char _char;
-    file.seek(locator[0].as<int>());
+    file.seek(jInt<int>(locator[0]));
     for(int i=0; i<segLen;){
         _char = file.read();
         if( ! string && isspace(_char)) continue;

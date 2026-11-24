@@ -17,10 +17,11 @@ void handleGraphCreate(){
   }
   
   trace(T_uploadGraph,11);
-  DynamicJsonBuffer Json;
-  JsonObject& graph = Json.parseObject(server.arg("data"));
+  JsonDocument Json;
+  deserializeJson(Json, server.arg("data"));
+  JsonObject graph = Json.as<JsonObject>();
   String filePath = graphDir;
-  String fileName = hashName(graph["name"].as<char*>());
+  String fileName = hashName(graph["name"].as<const char*>());
   filePath += "/" + fileName + ".txt";
   SD.remove(filePath);
   graphFile = SD.open(filePath, FILE_WRITE);
@@ -97,13 +98,14 @@ void handleGraphGetallplus(){
     char* bufr = new char[fileSize+1];
     graphFile.read((uint8_t*)bufr, fileSize);
     bufr[fileSize] = 0;
-    DynamicJsonBuffer Json;
-    JsonObject& graph = Json.parseObject(bufr);
-    if(graph.success()){
-      if( ! graph.containsKey(F("start"))){
+    JsonDocument Json;
+    DeserializationError jsonError = deserializeJson(Json, bufr);
+    JsonObject graph = Json.as<JsonObject>();
+    if( ! jsonError && ! graph.isNull()){
+      if(graph[F("start")].isNull()){
         if( ! response.endsWith("[")) response += ',';
         response += "{\"name\":\"";
-        response += graph[F("name")].as<char*>();
+        response += graph[F("name")].as<const char*>();
         response += "\",\"id\":\"";
         response += graphFile.name();
         response += "\"}";

@@ -34,7 +34,7 @@ uint8_t     unitsPrecision[] = {
 
 const char  opChars[] = "=+-*/<>|()";
 
-Script::Script(JsonObject& JsonScript)
+Script::Script(JsonObject JsonScript)
       :_next(nullptr)
       ,_name(nullptr)
       ,_parm(nullptr)
@@ -44,15 +44,15 @@ Script::Script(JsonObject& JsonScript)
       
     {
       JsonVariant var = JsonScript["name"];
-      if(var.success()){
-        _name = charstar(var.as<char*>());
+      if( ! var.isNull()){
+        _name = charstar(var.as<const char*>());
       }
     
       _units = Watts;
       var = JsonScript["units"];
-      if(var.success()){
+      if( ! var.isNull()){
         for(int i=0; i<unitsNone; i++){
-          if(strcmp_ci(var.as<char*>(),unitstr[i]) == 0){
+          if(strcmp_ci(var.as<const char*>(),unitstr[i]) == 0){
             _units = (units)i;
             break;
           } 
@@ -60,8 +60,8 @@ Script::Script(JsonObject& JsonScript)
       }
 
       var = JsonScript["script"];
-      if(var.success()){
-        if( ! encodeScript(var.as<char*>())){
+      if( ! var.isNull()){
+        if( ! encodeScript(var.as<const char*>())){
           log("Script: invalid Script in output %s.", _name);
         }
       }

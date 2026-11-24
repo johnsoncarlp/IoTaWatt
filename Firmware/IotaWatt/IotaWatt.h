@@ -42,6 +42,7 @@
 #include <SD.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
+#include "jsonUtil.h"
 #include <math.h>
 #include <Ticker.h>
 

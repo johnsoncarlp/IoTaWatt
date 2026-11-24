@@ -58,7 +58,7 @@ class Script {
 
   public:
 
-    Script(JsonObject&);
+    Script(JsonObject);
     Script(const char* name, const char* units, const char* script); 
     ~Script();
 
@@ -100,15 +100,15 @@ class ScriptSet {
       {}
 
 
-    ScriptSet (JsonArray& JsonScriptSet) {
+    ScriptSet (JsonArray JsonScriptSet) {
       _count = JsonScriptSet.size();
       _listHead = nullptr;
       if(_count){
-        JsonObject& obj = JsonScriptSet.get<JsonObject>(0);
+        JsonObject obj = JsonScriptSet[0].as<JsonObject>();
         _listHead = new Script(obj);
         Script* script = _listHead;
         for(int i=1; i<_count; ++i){
-          JsonObject& obj = JsonScriptSet.get<JsonObject>(i);
+          JsonObject obj = JsonScriptSet[i].as<JsonObject>();
           script->_next = new Script(obj);
           script = script->_next;
         }

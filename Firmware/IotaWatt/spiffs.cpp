@@ -79,8 +79,8 @@ bool spiffsFileExists(const char* path){
 String spiffsDirectory(String path){
     if( ! spiffsBegin()) return String("[]");
     Dir dir = SPIFFS.openDir(path);
-    DynamicJsonBuffer jsonBuffer;
-    JsonArray& array = jsonBuffer.createArray();
+    JsonDocument jsonDoc;
+    JsonArray array = jsonDoc.to<JsonArray>();
     while(dir.next()){
       String name = dir.fileName().substring(path.length()+1);
 
@@ -89,14 +89,14 @@ String spiffsDirectory(String path){
       if(name.indexOf('/') > 0){                    
         int i = 0;  
         for(; i<array.size(); i++){
-            if(name.substring(0,name.indexOf('/')).equals(array[i]["name"].as<char*>())) break; 
+            if(name.substring(0,name.indexOf('/')).equals(array[i]["name"].as<const char*>())) break; 
         }
         if(i != array.size()) continue;   
       }
 
             // Add a new entry
 
-      JsonObject& object = jsonBuffer.createObject();
+      JsonObject object = array.add<JsonObject>();
       if(name.indexOf('/') > 0){
         object["type"] = "dir";
         object["name"] = name.substring(0,name.indexOf('/'));
@@ -104,9 +104,8 @@ String spiffsDirectory(String path){
         object["type"] = "file";
         object["name"] = name;
       }
-      array.add(object);
     }
     String response;
-    array.printTo(response);
+    serializeJson(array, response);
     return response;
 }

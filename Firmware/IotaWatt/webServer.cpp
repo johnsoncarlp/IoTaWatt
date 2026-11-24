@@ -378,33 +378,30 @@ void printDirectory() {
   else {
     if(path != "/" && !SD.exists((char *)path.c_str())) return returnFail("BAD PATH");
     Dir dir = SDFS.openDir(path);
-    DynamicJsonBuffer jsonBuffer;
-    JsonArray& array = jsonBuffer.createArray();
+    JsonDocument jsonDoc;
+    JsonArray array = jsonDoc.to<JsonArray>();
     if(path == "/"){
-      JsonObject& object = jsonBuffer.createObject();
+      JsonObject object = array.add<JsonObject>();
       object["type"] = "dir";
       object["name"] = "esp_spiffs";
-      array.add(object);
     }
     dir.rewind();
     while(dir.next()){
       if(dir.isDirectory() && !dir.fileName().equalsIgnoreCase(F("system volume information"))){
-        JsonObject& object = jsonBuffer.createObject();
+        JsonObject object = array.add<JsonObject>();
         object["type"] = "dir";
         object["name"] = String(dir.fileName());
-        array.add(object);
       }
     }
     dir.rewind();
     while(dir.next()){
       if(dir.isFile()){
-        JsonObject& object = jsonBuffer.createObject();
+        JsonObject object = array.add<JsonObject>();
         object["type"] = "file";
         object["name"] = String(dir.fileName());
-        array.add(object);
       }
     }
-    array.printTo(response);
+    serializeJson(array, response);
   }  
   server.send(200, appJson_P, response);
 }
@@ -418,19 +415,18 @@ void printSpiffsDirectory(String path) {
     dir.close();
     return returnFail("NOT DIR");
   }
-  DynamicJsonBuffer jsonBuffer;
-  JsonArray& array = jsonBuffer.createArray();
+  JsonDocument jsonDoc;
+  JsonArray array = jsonDoc.to<JsonArray>();
   dir.rewindDirectory();
   File entry;
   while(entry = dir.openNextFile()){
-    JsonObject& object = jsonBuffer.createObject();
+    JsonObject object = array.add<JsonObject>();
     object["type"] = (entry.isDirectory()) ? "dir" : "file";
     object["name"] = String(entry.name());
-    array.add(object);
     entry.close();
   }
   String response = "";
-  array.printTo(response);
+  serializeJson(array, response);
   server.send(200, appJson_P, response);
   dir.close();
 }
@@ -448,41 +444,42 @@ void handlePasswords(){
   buff[len] = 0;
   String body = buff;
   delete[] buff;
-  DynamicJsonBuffer Json;
-  JsonObject& request = Json.parseObject(body);
-  if( ! request.success()){
+  JsonDocument Json;
+  DeserializationError parseError = deserializeJson(Json, body);
+  JsonObject request = Json.as<JsonObject>();
+  if(parseError || request.isNull()){
     server.send(400, txtPlain_P, F("Json parse failed."));
     return;
   }
   if(adminH1){
-    String testH1 = calcH1("admin", deviceName, request["oldadmin"].as<char*>());
+    String testH1 = calcH1("admin", deviceName, request["oldadmin"].as<const char*>());
     if( adminH1 && ! testH1.equals(bin2hex(adminH1,16))){
       server.send(400, txtPlain_P, F("Current admin password invalid."));
       return;
     }
   }
   
-  if(request.containsKey(F("newadmin"))){
+  if( ! request[F("newadmin")].isNull()){
     delete[] adminH1;
     adminH1 = nullptr;
     delete[] userH1;
     userH1 = nullptr;
-    String newAdmin = request[F("newadmin")].as<char*>();
+    String newAdmin = request[F("newadmin")].as<const char*>();
     if(newAdmin.length()){
-      String newAdminH1 = calcH1("admin", deviceName, request["newadmin"].as<char*>());
+      String newAdminH1 = calcH1("admin", deviceName, request["newadmin"].as<const char*>());
       adminH1 = new uint8_t[16];
       hex2bin(adminH1, newAdminH1.c_str(), 16);
     } 
-    if(request.containsKey(F("newuser"))){
-      String newAdmin = request["newuser"].as<char*>();
+    if( ! request[F("newuser")].isNull()){
+      String newAdmin = request["newuser"].as<const char*>();
       if(newAdmin.length()){
-        String newUserH1 = calcH1("user", deviceName, request["newuser"].as<char*>());
+        String newUserH1 = calcH1("user", deviceName, request["newuser"].as<const char*>());
         userH1 = new uint8_t[16];
         hex2bin(userH1, newUserH1.c_str(), 16);
       } 
     }
-    if(request.containsKey(F("localAccess"))){
-      localAccess = request["localAccess"].as<bool>();
+    if( ! request[F("localAccess")].isNull()){
+      localAccess = jBool(request["localAccess"]);
     }
     if(authSavePwds()){
       server.send(200, txtPlain_P, F("Passwords reset."));
@@ -502,183 +499,168 @@ void handleStatus(){
   uint32_t heapEntry = ESP.getFreeHeap();
   String response = "";
   {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
+    JsonDocument jsonDoc;
+    JsonObject root = jsonDoc.to<JsonObject>();
 
     if(server.hasArg(F("device"))){
-      JsonObject& device = jsonBuffer.createObject();
-      device.set(F("name"), deviceName);
-      device.set(F("timediff"), localTimeDiff);
-      device.set(F("allowdst"), timezoneRule?true:false);
-      device.set(F("update"), updateClass);
-      root.set(F("device"),device);
+      JsonObject device = root[F("device")].to<JsonObject>();
+      device[F("name")] = deviceName;
+      device[F("timediff")] = localTimeDiff;
+      device[F("allowdst")] = timezoneRule?true:false;
+      device[F("update")] = updateClass;
     }
     
     if(server.hasArg(F("stats"))){
       trace(T_WEB,14);
-      JsonObject& stats = jsonBuffer.createObject();
+      JsonObject stats = root[F("stats")].to<JsonObject>();
       trace(T_WEB,14);
-      stats.set(F("cyclerate"), samplesPerCycle);
+      stats[F("cyclerate")] = samplesPerCycle;
       trace(T_WEB,14);
-      stats.set(F("chanrate"),cycleSampleRate);
+      stats[F("chanrate")] = cycleSampleRate;
       trace(T_WEB,14);
-      stats.set(F("starttime"), programStartTime);
+      stats[F("starttime")] = programStartTime;
       trace(T_WEB,14);
-      stats.set(F("currenttime"), UTCtime());
+      stats[F("currenttime")] = UTCtime();
       trace(T_WEB,14);
-      stats.set(F("runseconds"), UTCtime()-programStartTime);
+      stats[F("runseconds")] = UTCtime()-programStartTime;
       trace(T_WEB,14);
-      stats.set(F("stack"),ESP.getFreeHeap());
+      stats[F("stack")] = ESP.getFreeHeap();
       trace(T_WEB,14);
-      stats.set(F("version"),IOTAWATT_VERSION);
+      stats[F("version")] = IOTAWATT_VERSION;
       trace(T_WEB,14);
-      stats.set(F("frequency"),frequency);
+      stats[F("frequency")] = frequency;
       trace(T_WEB,14);
-      stats.set(F("lowbat"), RTClowBat);
-      root.set(F("stats"),stats);
+      stats[F("lowbat")] = RTClowBat;
     }
     
     if(server.hasArg(F("inputs"))){
       trace(T_WEB,15);
-      JsonArray& channelArray = jsonBuffer.createArray();
+      JsonArray channelArray = root["inputs"].to<JsonArray>();
       for(int i=0; i<maxInputs; i++){
         if(inputChannel[i]->isActive()){
-          JsonObject& channelObject = jsonBuffer.createObject();
-          channelObject.set(F("channel"),inputChannel[i]->_channel);
+          JsonObject channelObject = channelArray.add<JsonObject>();
+          channelObject[F("channel")] = inputChannel[i]->_channel;
           if(inputChannel[i]->_type == channelTypeVoltage){
-            channelObject.set(F("Vrms"),statRecord.accum1[i]);
-            channelObject.set(F("Hz"),statRecord.accum2[i]);
-            channelObject.set("phase", inputChannel[i]->getPhase(inputChannel[i]->dataBucket.volts));
+            channelObject[F("Vrms")] = statRecord.accum1[i];
+            channelObject[F("Hz")] = statRecord.accum2[i];
+            channelObject["phase"] = inputChannel[i]->getPhase(inputChannel[i]->dataBucket.volts);
           }
           else if(inputChannel[i]->_type == channelTypePower){
             if(statRecord.accum1[i] > -2 && statRecord.accum1[i] < 2) statRecord.accum1[i] = 0;
-            channelObject.set(F("Watts"),String(statRecord.accum1[i],0));
+            channelObject[F("Watts")] = String(statRecord.accum1[i],0);
             double pf = statRecord.accum2[i];
             if(pf != 0){
               pf = statRecord.accum1[i] / pf;
             }
-            channelObject.set("Pf",pf);
+            channelObject["Pf"] = pf;
             if(inputChannel[i]->_reversed){
-              channelObject.set(F("reversed"),true);
+              channelObject[F("reversed")] = true;
             }
             double volts = inputChannel[inputChannel[i]->_vchannel]->dataBucket.volts;
             double amps = (volts < 50) ? 0 : inputChannel[i]->dataBucket.VA / volts;
-            channelObject.set("phase", inputChannel[i]->getPhase(amps));
-            channelObject.set("lastphase", inputChannel[i]->_lastPhase);
+            channelObject["phase"] = inputChannel[i]->getPhase(amps);
+            channelObject["lastphase"] = inputChannel[i]->_lastPhase;
           }
-          channelArray.add(channelObject);
         }
       }
-      root["inputs"] = channelArray;
     }
 
     if(server.hasArg(F("outputs"))){
       trace(T_WEB,16);
-      JsonArray& outputArray = jsonBuffer.createArray();
+      JsonArray outputArray = root["outputs"].to<JsonArray>();
       Script* script = outputs->first();
       statRecord.UNIXtime = UTCtime();
       statRecord.logHours = 1;
       while(script){
         trace(T_WEB,16,1);
-        JsonObject& channelObject = jsonBuffer.createObject();
-        channelObject.set(F("name"),script->name());
-        channelObject.set(F("units"),script->getUnits());
+        JsonObject channelObject = outputArray.add<JsonObject>();
+        channelObject[F("name")] = script->name();
+        channelObject[F("units")] = script->getUnits();
         double value = script->run(nullptr, &statRecord);
-        channelObject.set(F("value"),value);
-        outputArray.add(channelObject);
+        channelObject[F("value")] = value;
         script = script->next();
       }
       trace(T_WEB,16,2);
-      root["outputs"] = outputArray;
     }
 
     if(server.hasArg(F("uploaders"))){
       char **uploader_names = get_uploader_list();
       int i = -1;
-      JsonArray& uploaders = jsonBuffer.createArray();
+      JsonArray uploaders = root[F("uploaders")].to<JsonArray>();
       while(uploader_names[++i]){
-        JsonObject &status = jsonBuffer.createObject();
         Uploader *uploader = get_uploader_instance(uploader_names[i]);
         if (uploader){
+          JsonObject status = uploaders.add<JsonObject>();
           uploader->getStatusJson(status);
-          uploaders.add(status);
         }
       }
 
       trace(T_WEB,17,4);
-      JsonObject& status = jsonBuffer.createObject();
       if(PVoutput){
+        JsonObject status = uploaders.add<JsonObject>();
         PVoutput->getStatusJson(status);
-        uploaders.add(status);
       }
-      root.set(F("uploaders"),uploaders);
     }
 
     if(server.hasArg(F("datalogs"))){
       trace(T_WEB,18,1);
-      JsonArray& datalogs = jsonBuffer.createArray();
+      JsonArray datalogs = root[F("datalogs")].to<JsonArray>();
 
-      JsonObject& currlog = jsonBuffer.createObject();
-      currlog.set(F("id"), "Current");
-      currlog.set(F("firstkey"),Current_log.firstKey());
-      currlog.set(F("lastkey"),Current_log.lastKey());
-      currlog.set(F("size"),Current_log.fileSize());
-      currlog.set(F("interval"),Current_log.interval());
-      //currlog.set("wrap",Current_log._wrap ? true : false);
-      datalogs.add(currlog);
+      JsonObject currlog = datalogs.add<JsonObject>();
+      currlog[F("id")] = "Current";
+      currlog[F("firstkey")] = Current_log.firstKey();
+      currlog[F("lastkey")] = Current_log.lastKey();
+      currlog[F("size")] = Current_log.fileSize();
+      currlog[F("interval")] = Current_log.interval();
+      //currlog["wrap"] = Current_log._wrap ? true : false;
 
       trace(T_WEB,18,2);  
-      JsonObject& histlog = jsonBuffer.createObject();
-      histlog.set(F("id"), "History");
-      histlog.set(F("firstkey"),History_log.firstKey());
-      histlog.set(F("lastkey"),History_log.lastKey());
-      histlog.set(F("size"),History_log.fileSize());
-      histlog.set(F("interval"),History_log.interval());
-      datalogs.add(histlog);
+      JsonObject histlog = datalogs.add<JsonObject>();
+      histlog[F("id")] = "History";
+      histlog[F("firstkey")] = History_log.firstKey();
+      histlog[F("lastkey")] = History_log.lastKey();
+      histlog[F("size")] = History_log.fileSize();
+      histlog[F("interval")] = History_log.interval();
 
       trace(T_WEB,18,3);  
       Script *script = integrations->first();
       while(script){
         IotaLog *log = ((integrator *)script->getParm())->get_log();
-        JsonObject& intlog = jsonBuffer.createObject();
-        intlog.set(F("id"), script->name());
-        intlog.set(F("firstkey"),log->firstKey());
-        intlog.set(F("lastkey"),log->lastKey());
-        intlog.set(F("size"),log->fileSize());
-        intlog.set(F("interval"),log->interval());
-        datalogs.add(intlog);
+        JsonObject intlog = datalogs.add<JsonObject>();
+        intlog[F("id")] = script->name();
+        intlog[F("firstkey")] = log->firstKey();
+        intlog[F("lastkey")] = log->lastKey();
+        intlog[F("size")] = log->fileSize();
+        intlog[F("interval")] = log->interval();
         script = script->next();
       }
 
       trace(T_WEB,18,4);
-      root.set(F("datalogs"),datalogs);
     }
 
     if(server.hasArg(F("wifi"))){
       trace(T_WEB,19,1);
-      JsonObject& wifi = jsonBuffer.createObject();
-      wifi.set(F("connecttime"),wifiConnectTime);
+      JsonObject wifi = root[F("wifi")].to<JsonObject>();
+      wifi[F("connecttime")] = wifiConnectTime;
       if(wifiConnectTime){
-        wifi.set(F("SSID"),WiFi.SSID());
+        wifi[F("SSID")] = WiFi.SSID();
         String ip = WiFi.localIP().toString();
-        wifi.set(F("IP"),ip);
+        wifi[F("IP")] = ip;
         //Serial.printf("SSID: %s, IP: %s\r\n", WiFi.SSID().c_str(), ip.c_str());
-        wifi.set(F("channel"),WiFi.channel());
-        wifi.set(F("RSSI"),WiFi.RSSI());
-        wifi.set(F("mac"), WiFi.macAddress());
+        wifi[F("channel")] = WiFi.channel();
+        wifi[F("RSSI")] = WiFi.RSSI();
+        wifi[F("mac")] = WiFi.macAddress();
       }
-      root.set(F("wifi"),wifi);
     }
 
     if(server.hasArg(F("passwords"))){
       trace(T_WEB,19,2);
-      JsonObject& passwords = jsonBuffer.createObject();
-      passwords.set(F("admin"),adminH1 != nullptr);
-      passwords.set(F("user"),userH1 != nullptr);
-      passwords.set(F("localAccess"), localAccess);
-      root[F("passwords")] = passwords;
+      JsonObject passwords = root[F("passwords")].to<JsonObject>();
+      passwords[F("admin")] = adminH1 != nullptr;
+      passwords[F("user")] = userH1 != nullptr;
+      passwords[F("localAccess")] = localAccess;
     }
-    root.printTo(response);
+    serializeJson(root, response);
   }
   server.send(200, appJson_P, response);
 }
@@ -689,13 +671,13 @@ void handleVcal(){
     server.send(400, txtJson_P, F("Missing parameters"));
     return;
   }
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
+  JsonDocument jsonDoc;
+  JsonObject root = jsonDoc.to<JsonObject>();
   int channel = server.arg(F("channel")).toInt();
   float Vrms = sampleVoltage(channel, server.arg("cal").toFloat());
-  root.set("vrms",Vrms);
+  root["vrms"] = Vrms;
   String response = "";
-  root.printTo(response);
+  serializeJson(root, response);
   server.send(200, txtJson_P, response);  
 }
 
@@ -780,29 +762,26 @@ void handleGetFeedList(){
   trace(T_WEB,18);
   String response;
   {
-    DynamicJsonBuffer jsonBuffer;
-    JsonArray& array = jsonBuffer.createArray();
+    JsonDocument jsonDoc;
+    JsonArray array = jsonDoc.to<JsonArray>();
     for(int i=0; i<maxInputs; i++){
       if(inputChannel[i]->isActive()){
         if(inputChannel[i]->_type == channelTypeVoltage){
-          JsonObject& voltage = jsonBuffer.createObject();
+          JsonObject voltage = array.add<JsonObject>();
           voltage["id"] = String("IV") + String(inputChannel[i]->_name);
           voltage["tag"] = F("Voltage");
           voltage["name"] = inputChannel[i]->_name;
-          array.add(voltage);
         } 
         else
           if(inputChannel[i]->_type == channelTypePower){
-          JsonObject& power = jsonBuffer.createObject();
+          JsonObject power = array.add<JsonObject>();
           power["id"] = String("IP") + String(inputChannel[i]->_name);
           power["tag"] = F("Power");
           power["name"] = inputChannel[i]->_name;
-          array.add(power);
-          JsonObject& energy = jsonBuffer.createObject();
+          JsonObject energy = array.add<JsonObject>();
           energy["id"] = String("IE") + String(inputChannel[i]->_name);
           energy["tag"] = F("Energy");
           energy["name"] = inputChannel[i]->_name;
-          array.add(energy);
         }
       }
     }
@@ -814,36 +793,32 @@ void handleGetFeedList(){
         if(String(script->name()).indexOf(' ') == -1){
           String units = script->getUnits();
           if(units.equalsIgnoreCase("volts")){
-            JsonObject& voltage = jsonBuffer.createObject();
+            JsonObject voltage = array.add<JsonObject>();
             voltage["id"] = String("OV") + String(script->name());
             voltage["tag"] = F("Voltage");
             voltage["name"] = script->name();
-            array.add(voltage);
           } 
           else if(units.equalsIgnoreCase("watts")) {
-            JsonObject& power = jsonBuffer.createObject();
+            JsonObject power = array.add<JsonObject>();
             power["id"] = String("OP") + String(script->name());
             power["tag"] = F("Power");
             power["name"] = script->name();
-            array.add(power);
-            JsonObject& energy = jsonBuffer.createObject();
+            JsonObject energy = array.add<JsonObject>();
             energy["id"] = String("OE") + String(script->name());
             energy["tag"] = F("Energy");
             energy["name"] = script->name();
-            array.add(energy);
           }
           else {
-            JsonObject& other = jsonBuffer.createObject();
+            JsonObject other = array.add<JsonObject>();
             other["id"] = String("OO") + String(script->name());
             other["tag"] = F("Outputs");
             other["name"] = script->name();
-            array.add(other);
           }
         }
         script = script->next();
       }
     }
-    array.printTo(response);
+    serializeJson(array, response);
   }
   server.send(200, appJson_P,response);
 }

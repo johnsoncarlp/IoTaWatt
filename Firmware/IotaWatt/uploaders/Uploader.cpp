@@ -8,15 +8,15 @@ void Uploader::getStatusJson(JsonObject& status)
 
 
     trace(T_uploader,110);
-    status.set(F("id"), _id);
+    status[F("id")] = _id;
     if(_state == stopped_s){
-        status.set(F("status"), "stopped");
+        status[F("status")] = "stopped";
     } else {
-        status.set(F("status"), "running");
+        status[F("status")] = "running";
     }
-    status.set(F("lastpost"), _lastSent);
+    status[F("lastpost")] = _lastSent;
     if(_statusMessage){
-        status.set(F("message"), _statusMessage);
+        status[F("message")] = _statusMessage;
     }
     trace(T_uploader,110);
 }
@@ -297,9 +297,10 @@ bool Uploader::config(const char *jsonConfig)
 
     // Parse json configuration
 
-    DynamicJsonBuffer Json;
-    JsonObject &config = Json.parseObject(jsonConfig);
-    if (!config.success())
+    JsonDocument Json;
+    DeserializationError parseError = deserializeJson(Json, jsonConfig);
+    JsonObject config = Json.as<JsonObject>();
+    if (parseError || config.isNull())
     {
         log("%s: Config parse failed", _id);
         return false;
@@ -308,11 +309,11 @@ bool Uploader::config(const char *jsonConfig)
     // If config not changed, return success.
 
     trace(T_uploader, 100);
-    if (_revision == config["revision"]) 
+    if (_revision == jInt<int32_t>(config["revision"])) 
     {
         return true;
     }
-    _revision = config["revision"];
+    _revision = jInt<int32_t>(config["revision"]);
 
     // parse and validate url
 
@@ -320,7 +321,7 @@ bool Uploader::config(const char *jsonConfig)
     if(!_url){
         _url = new xurl;
     }
-    if (! _url->parse(config.get<char *>("url")))
+    if (! _url->parse(config["url"].as<const char *>()))
     {
         log("%s: invalid URL", _id);
         return false;
@@ -340,23 +341,23 @@ bool Uploader::config(const char *jsonConfig)
     // Gather and check parameters
 
     trace(T_uploader, 100);
-    _interval = config.get<unsigned int>("postInterval");
+    _interval = jInt<unsigned int>(config["postInterval"]);
     if (!_interval || (_interval % 5 != 0))
     {
         log("%s: Invalid interval", _id);
         return false;
     }
-    _bulkSend = config.get<unsigned int>("bulksend");
+    _bulkSend = jInt<unsigned int>(config["bulksend"]);
     _bulkSend = constrain(_bulkSend, 1, 10);
-    _stop = config.get<bool>("stop");
-    _uploadStartDate = config.get<unsigned int>("begdate");
+    _stop = jBool(config["stop"]);
+    _uploadStartDate = jInt<unsigned int>(config["begdate"]);
 
         // Build the measurement scriptset
 
     trace(T_uploader,101);
     delete _outputs;
     JsonVariant var = config["outputs"];
-    if(var.success()){
+    if( ! var.isNull()){
         trace(T_uploader,102);
         _outputs = new ScriptSet(var.as<JsonArray>());
     }

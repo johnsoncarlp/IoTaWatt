@@ -72,18 +72,19 @@ uint32_t influxDB_uploader::handle_checkQuery_s(){
 
     String response = _request->responseText();
     trace(T_influx1,35);
-    DynamicJsonBuffer Json;
-    JsonObject& results = Json.parseObject(response);
-    if(results.success()){
+    JsonDocument Json;
+    DeserializationError parseError = deserializeJson(Json, response);
+    JsonObject results = Json.as<JsonObject>();
+    if( ! parseError && ! results.isNull()){
         trace(T_influx1,35);
-        JsonArray& columns = results["results"][0]["series"][0]["columns"];
-        JsonArray& values = results["results"][0]["series"][0]["values"][0];
-        if(columns.success() && values.success()){
+        JsonArray columns = results["results"][0]["series"][0]["columns"];
+        JsonArray values = results["results"][0]["series"][0]["values"][0];
+        if( ! columns.isNull() && ! values.isNull()){
             trace(T_influx1,35);
             for(int i=0; i<columns.size(); i++){
                 trace(T_influx1,35);
-                if(strcmp("time",columns[i].as<char*>()) == 0){
-                    _lastSent = MAX(_lastSent, values[i].as<unsigned long>());
+                if(strcmp("time",columns[i].as<const char*>()) == 0){
+                    _lastSent = MAX(_lastSent, jInt<unsigned long>(values[i]));
                     break;
                 }
             }
@@ -315,39 +316,39 @@ void influxDB_uploader::setRequestHeaders(){
 bool influxDB_uploader::configCB(JsonObject& config){
     trace(T_influx1, 101);
     delete[] _database;
-    _database = charstar(config.get<char*>(F("database")));
+    _database = charstar(config[F("database")].as<const char*>());
     delete[] _user;
-    _user = charstar(config.get<const char*>(F("user")));
+    _user = charstar(config[F("user")].as<const char*>());
     delete[] _pwd;
-    _pwd = charstar(config.get<char *>(F("pwd")));
+    _pwd = charstar(config[F("pwd")].as<const char *>());
     delete _retention;
-    _retention = charstar(config.get<const char*>(F("retp")));
-    _heap = config.get<bool>(F("heap"));
+    _retention = charstar(config[F("retp")].as<const char*>());
+    _heap = jBool(config[F("heap")]);
 
     trace(T_influx1, 101);
     delete[] _measurement;
-    _measurement = charstar(config.get<const char *>(F("measurement")));
+    _measurement = charstar(config[F("measurement")].as<const char *>());
     if (!_measurement)
     {
         _measurement = charstar(F("$name"));
     }
     trace(T_influx1, 102);
     delete[] _fieldKey;
-    _fieldKey = charstar(config.get<const char *>(F("fieldkey")));
+    _fieldKey = charstar(config[F("fieldkey")].as<const char *>());
     if (!_fieldKey)
     {
         _fieldKey = charstar(F("value"));
     }
-    _stop = config.get<bool>(F("stop"));
+    _stop = jBool(config[F("stop")]);
 
     // Build tagSet
 
     trace(T_influx1, 103);
     delete _tagSet;
     _tagSet = nullptr;
-    JsonArray &tagset = config[F("tagset")];
+    JsonArray tagset = config[F("tagset")];
     _staticKeySet = true;
-    if (tagset.success())
+    if ( ! tagset.isNull())
     {
         trace(T_influx1, 103);
         for (int i = tagset.size(); i > 0;)

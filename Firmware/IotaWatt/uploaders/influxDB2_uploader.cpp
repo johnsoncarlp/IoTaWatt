@@ -337,9 +337,9 @@ uint32_t influxDB2_uploader::handle_checkWrite_s(){
 //********************************************************************************************************************
 bool influxDB2_uploader::configCB(JsonObject& config){
     trace(T_influx2, 101);
-    _heap = config.get<bool>(F("heap"));
+    _heap = jBool(config[F("heap")]);
     delete[] _bucket;
-    _bucket = charstar(config.get<char *>(F("bucket")));
+    _bucket = charstar(config[F("bucket")].as<const char *>());
     if (strlen(_bucket) == 0)
     {
         log("%s: Bucket not specified", _id);
@@ -348,7 +348,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
 
     trace(T_influx2, 101);
     delete[] _orgID;
-    _orgID = charstar(config.get<const char *>(F("orgid")));
+    _orgID = charstar(config[F("orgid")].as<const char *>());
     if (!_orgID || strlen(_orgID) != 16)
     {
         log("%s: Invalid organization ID", _id);
@@ -356,7 +356,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     }
     trace(T_influx2, 101);
     delete[] _token;
-    _token = charstar(config.get<const char *>(F("authtoken")));
+    _token = charstar(config[F("authtoken")].as<const char *>());
     if (!_token || strlen(_token) != 88)
     {
         log("%s: Invalid authorization token", _id);
@@ -364,7 +364,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     }
     trace(T_influx2, 101);
     delete[] _measurement;
-    _measurement = charstar(config.get<const char *>(F("measurement")));
+    _measurement = charstar(config[F("measurement")].as<const char *>());
     if (!_measurement)
     {
         _measurement = charstar(F("$name"));
@@ -372,22 +372,22 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     trace(T_influx2, 102);
     delete[] _fieldKey;
     ;
-    _fieldKey = charstar(config.get<const char *>(F("fieldkey")));
+    _fieldKey = charstar(config[F("fieldkey")].as<const char *>());
     if (!_fieldKey)
     {
         _fieldKey = charstar(F("value"));
     }
     trace(T_influx2, 102);
-    _stop = config.get<bool>(F("stop"));
+    _stop = jBool(config[F("stop")]);
 
     // Build tagSet
 
     trace(T_influx2, 103);
     delete _tagSet;
     _tagSet = nullptr;
-    JsonArray &tagset = config[F("tagset")];
+    JsonArray tagset = config[F("tagset")];
     _staticKeySet = true;
-    if (tagset.success())
+    if ( ! tagset.isNull())
     {
         trace(T_influx2, 103);
         for (int i = tagset.size(); i > 0;)
