@@ -748,6 +748,9 @@ bool PVoutput_uploader::config(const char* configObj){
         trace(T_PVoutput,204);
         _outputs = new ScriptSet(var.as<JsonArray>());
     }
+    else {
+        _outputs = new ScriptSet();         // never leave the deleted pointer in place
+    }
     trace(T_PVoutput,205);
     if( ! _started) {
         trace(T_PVoutput,206);
