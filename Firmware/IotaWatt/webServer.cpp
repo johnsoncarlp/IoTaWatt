@@ -452,6 +452,10 @@ void handlePasswords(){
     return;
   }
   if(adminH1){
+    if( ! request["oldadmin"].is<const char*>()){
+      server.send(400, txtPlain_P, F("Current admin password required."));
+      return;
+    }
     String testH1 = calcH1("admin", deviceName, request["oldadmin"].as<const char*>());
     if( adminH1 && ! testH1.equals(bin2hex(adminH1,16))){
       server.send(400, txtPlain_P, F("Current admin password invalid."));
