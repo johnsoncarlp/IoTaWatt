@@ -325,7 +325,7 @@ bool configDevice(const char* JsonStr){
   }
   
   if( ! device[F("chanaref")].isNull()){
-    for(int i=0; i<MIN(maxInputs,device[F("chanaddr")].size()); i++){
+    for(int i=0; i<MIN(maxInputs,device[F("chanaref")].size()); i++){
       inputChannel[i]->_aRef = jInt<unsigned int>(device[F("chanaref")][i]);
     }
   }
