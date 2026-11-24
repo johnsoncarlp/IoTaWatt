@@ -430,9 +430,9 @@ bool configInputs(const char* JsonStr){
         log("Config input channel mismatch: %d", i);
         continue;
       }
-      delete inputChannel[i]->_name;
+      delete[] inputChannel[i]->_name;
       inputChannel[i]->_name = charstar(jStr(input[F("name")]));
-      delete inputChannel[i]->_model;
+      delete[] inputChannel[i]->_model;
       inputChannel[i]->_model = charstar(jStr(input[F("model")]));
       // Fix name change that removed (USA) in table
       if(strcmp_P(inputChannel[i]->_model,PSTR("TDC DA-10-09(USA)")) == 0){
