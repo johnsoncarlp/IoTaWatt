@@ -18,8 +18,12 @@ void handleGraphCreate(){
   
   trace(T_uploadGraph,11);
   JsonDocument Json;
-  deserializeJson(Json, server.arg("data"));
+  DeserializationError jsonError = deserializeJson(Json, server.arg("data"));
   JsonObject graph = Json.as<JsonObject>();
+  if(jsonError || ! graph["name"].is<const char*>()){
+    server.send(400, txtPlain_P, F("Invalid graph data."));
+    return;
+  }
   String filePath = graphDir;
   String fileName = hashName(graph["name"].as<const char*>());
   filePath += "/" + fileName + ".txt";
