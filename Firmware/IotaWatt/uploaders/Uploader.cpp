@@ -321,7 +321,7 @@ bool Uploader::config(const char *jsonConfig)
     if(!_url){
         _url = new xurl;
     }
-    if (! _url->parse(config["url"].as<const char *>()))
+    if (! _url->parse(jStr(config["url"]).c_str()))
     {
         log("%s: invalid URL", _id);
         return false;

@@ -738,9 +738,9 @@ bool PVoutput_uploader::config(const char* configObj){
     trace(T_PVoutput,202);
     _beginPosting = jInt<uint32_t>(config["begdate"]);
     delete[] _apiKey;
-    _apiKey = charstar(config["apikey"].as<const char*>());
+    _apiKey = charstar(jStr(config["apikey"]));
     delete[] _systemID;
-    _systemID = charstar(config["systemid"].as<const char*>());
+    _systemID = charstar(jStr(config["systemid"]));
     trace(T_PVoutput,203);
     delete _outputs;
     JsonVariant var = config["outputs"];

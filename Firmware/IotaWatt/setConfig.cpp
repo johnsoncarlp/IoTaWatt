@@ -50,13 +50,15 @@ bool updateConfig(const char *newConfig){
 //*************************************************************************************************
 bool recoverConfig(){
   if(SD.exists(F(IOTA_CONFIG_NEW_PATH)) && setConfig(IOTA_CONFIG_NEW_PATH)){
-    return updateConfig(IOTA_CONFIG_NEW_PATH);
     log("using new config+1.");
+    return updateConfig(IOTA_CONFIG_NEW_PATH);
   }
   if(SD.exists(F(IOTA_CONFIG_OLD_PATH)) && setConfig(IOTA_CONFIG_OLD_PATH)){
-    SD.remove(IOTA_CONFIG_PATH);
+        // Keep the rejected config for the user to fix rather than deleting it.
+    if(SD.exists(F(IOTA_CONFIG_BAD_PATH))) SD.remove(F(IOTA_CONFIG_BAD_PATH));
+    SDFS.rename(F(IOTA_CONFIG_PATH), F(IOTA_CONFIG_BAD_PATH));
     SDFS.rename(F(IOTA_CONFIG_OLD_PATH), F(IOTA_CONFIG_PATH));
-    log("reverting to config-1.");
+    log("reverting to config-1, rejected config kept as %s.", IOTA_CONFIG_BAD_PATH);
     return true;
   }
   return false;
@@ -282,7 +284,7 @@ bool configDevice(const char* JsonStr){
   }
   if( ! device[F("name")].isNull()){
     delete[] deviceName;
-    deviceName = charstar(device[F("name")].as<const char*>());
+    deviceName = charstar(jStr(device[F("name")]));
   }
       
   if( ! device[F("refvolts")].isNull()){
@@ -354,7 +356,7 @@ bool configDevice(const char* JsonStr){
   delete[] HTTPSproxy;
   HTTPSproxy = nullptr;
   if( ! device[F("httpsproxy")].isNull()){
-    HTTPSproxy = charstar(device[F("httpsproxy")].as<const char *>());
+    HTTPSproxy = charstar(jStr(device[F("httpsproxy")]));
   }
   return true;
 }
@@ -429,9 +431,9 @@ bool configInputs(const char* JsonStr){
         continue;
       }
       delete inputChannel[i]->_name;
-      inputChannel[i]->_name = charstar(input[F("name")].as<const char*>());
+      inputChannel[i]->_name = charstar(jStr(input[F("name")]));
       delete inputChannel[i]->_model;
-      inputChannel[i]->_model = charstar(input[F("model")].as<const char*>());
+      inputChannel[i]->_model = charstar(jStr(input[F("model")]));
       // Fix name change that removed (USA) in table
       if(strcmp_P(inputChannel[i]->_model,PSTR("TDC DA-10-09(USA)")) == 0){
         inputChannel[i]->_model[12] = 0;
@@ -445,7 +447,7 @@ bool configInputs(const char* JsonStr){
       inputChannel[i]->_vphase = jFloat(input[F("vphase")]);
       inputChannel[i]->_vchannel = ( ! input["vref"].isNull()) ? jInt<int>(input["vref"]) : 0;
       inputChannel[i]->active(true);
-      String type = input[F("type")] | "";
+      String type = jStr(input[F("type")]);
       inputChannel[i]->_reverse = input[F("reverse")] | false;
       if(type == "VT") {
         inputChannel[i]->_type = channelTypeVoltage; 

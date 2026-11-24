@@ -316,25 +316,25 @@ void influxDB_uploader::setRequestHeaders(){
 bool influxDB_uploader::configCB(JsonObject& config){
     trace(T_influx1, 101);
     delete[] _database;
-    _database = charstar(config[F("database")].as<const char*>());
+    _database = charstar(jStr(config[F("database")]));
     delete[] _user;
-    _user = charstar(config[F("user")].as<const char*>());
+    _user = charstar(jStr(config[F("user")]));
     delete[] _pwd;
-    _pwd = charstar(config[F("pwd")].as<const char *>());
+    _pwd = charstar(jStr(config[F("pwd")]));
     delete _retention;
-    _retention = charstar(config[F("retp")].as<const char*>());
+    _retention = charstar(jStr(config[F("retp")]));
     _heap = jBool(config[F("heap")]);
 
     trace(T_influx1, 101);
     delete[] _measurement;
-    _measurement = charstar(config[F("measurement")].as<const char *>());
+    _measurement = charstar(jStr(config[F("measurement")]));
     if (!_measurement)
     {
         _measurement = charstar(F("$name"));
     }
     trace(T_influx1, 102);
     delete[] _fieldKey;
-    _fieldKey = charstar(config[F("fieldkey")].as<const char *>());
+    _fieldKey = charstar(jStr(config[F("fieldkey")]));
     if (!_fieldKey)
     {
         _fieldKey = charstar(F("value"));
@@ -357,8 +357,8 @@ bool influxDB_uploader::configCB(JsonObject& config){
             influxTag *tag = new influxTag;
             tag->next = _tagSet;
             _tagSet = tag;
-            tag->key = charstar(tagset[i][F("key")].as<const char *>());
-            tag->value = charstar(tagset[i][F("value")].as<const char *>());
+            tag->key = charstar(jStr(tagset[i][F("key")]));
+            tag->value = charstar(jStr(tagset[i][F("value")]));
             if ((strstr(tag->value, "$units") != nullptr) || (strstr(tag->value, "$name") != nullptr))
                 _staticKeySet = false;
         }

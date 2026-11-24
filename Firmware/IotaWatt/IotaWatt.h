@@ -100,6 +100,7 @@ extern simSolar *simsolar;
 #define IOTA_CONFIG_PATH      "/config.txt"
 #define IOTA_CONFIG_NEW_PATH  "/config+1.txt"
 #define IOTA_CONFIG_OLD_PATH  "/config-1.txt"
+#define IOTA_CONFIG_BAD_PATH  "/config-bad.txt"
 #define IOTA_TABLE_PATH       "/tables.txt"
 #define IOTA_NEW_TABLE_PATH   "/table+1.txt"
 #define IOTA_INTEGRATIONS_DIR "/iotawatt/integrations/"

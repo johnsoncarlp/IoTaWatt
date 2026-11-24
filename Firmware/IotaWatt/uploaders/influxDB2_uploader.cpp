@@ -339,7 +339,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     trace(T_influx2, 101);
     _heap = jBool(config[F("heap")]);
     delete[] _bucket;
-    _bucket = charstar(config[F("bucket")].as<const char *>());
+    _bucket = charstar(jStr(config[F("bucket")]));
     if (strlen(_bucket) == 0)
     {
         log("%s: Bucket not specified", _id);
@@ -348,7 +348,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
 
     trace(T_influx2, 101);
     delete[] _orgID;
-    _orgID = charstar(config[F("orgid")].as<const char *>());
+    _orgID = charstar(jStr(config[F("orgid")]));
     if (!_orgID || strlen(_orgID) != 16)
     {
         log("%s: Invalid organization ID", _id);
@@ -356,7 +356,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     }
     trace(T_influx2, 101);
     delete[] _token;
-    _token = charstar(config[F("authtoken")].as<const char *>());
+    _token = charstar(jStr(config[F("authtoken")]));
     if (!_token || strlen(_token) != 88)
     {
         log("%s: Invalid authorization token", _id);
@@ -364,7 +364,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     }
     trace(T_influx2, 101);
     delete[] _measurement;
-    _measurement = charstar(config[F("measurement")].as<const char *>());
+    _measurement = charstar(jStr(config[F("measurement")]));
     if (!_measurement)
     {
         _measurement = charstar(F("$name"));
@@ -372,7 +372,7 @@ bool influxDB2_uploader::configCB(JsonObject& config){
     trace(T_influx2, 102);
     delete[] _fieldKey;
     ;
-    _fieldKey = charstar(config[F("fieldkey")].as<const char *>());
+    _fieldKey = charstar(jStr(config[F("fieldkey")]));
     if (!_fieldKey)
     {
         _fieldKey = charstar(F("value"));
@@ -396,8 +396,8 @@ bool influxDB2_uploader::configCB(JsonObject& config){
             influxTag *tag = new influxTag;
             tag->next = _tagSet;
             _tagSet = tag;
-            tag->key = charstar(tagset[i][F("key")].as<const char *>());
-            tag->value = charstar(tagset[i][F("value")].as<const char *>());
+            tag->key = charstar(jStr(tagset[i][F("key")]));
+            tag->value = charstar(jStr(tagset[i][F("value")]));
             if ((strstr(tag->value, "$units") != nullptr) || (strstr(tag->value, "$name") != nullptr))
                 _staticKeySet = false;
         }

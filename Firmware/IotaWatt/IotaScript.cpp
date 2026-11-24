@@ -45,14 +45,15 @@ Script::Script(JsonObject JsonScript)
     {
       JsonVariant var = JsonScript["name"];
       if( ! var.isNull()){
-        _name = charstar(var.as<const char*>());
+        _name = charstar(jStr(var));
       }
     
       _units = Watts;
       var = JsonScript["units"];
       if( ! var.isNull()){
+        String unitsStr = jStr(var);
         for(int i=0; i<unitsNone; i++){
-          if(strcmp_ci(var.as<const char*>(),unitstr[i]) == 0){
+          if(strcmp_ci(unitsStr.c_str(),unitstr[i]) == 0){
             _units = (units)i;
             break;
           } 
@@ -61,7 +62,7 @@ Script::Script(JsonObject JsonScript)
 
       var = JsonScript["script"];
       if( ! var.isNull()){
-        if( ! encodeScript(var.as<const char*>())){
+        if( ! encodeScript(jStr(var).c_str())){
           log("Script: invalid Script in output %s.", _name);
         }
       }
