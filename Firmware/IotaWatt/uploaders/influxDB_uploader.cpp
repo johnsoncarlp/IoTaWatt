@@ -359,6 +359,11 @@ bool influxDB_uploader::configCB(JsonObject& config){
             _tagSet = tag;
             tag->key = charstar(jStr(tagset[i][F("key")]));
             tag->value = charstar(jStr(tagset[i][F("value")]));
+            if ( ! tag->key || ! tag->value)
+            {
+                log("%s: tagset entry needs a key and a value", _id);
+                return false;
+            }
             if ((strstr(tag->value, "$units") != nullptr) || (strstr(tag->value, "$name") != nullptr))
                 _staticKeySet = false;
         }
