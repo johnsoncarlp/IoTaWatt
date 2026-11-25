@@ -178,9 +178,8 @@ uint32_t getFeedData(){ //(struct serviceBlock* _serviceBlock){
           // Loop to generate entries
       
       while(UnixTime <= endUnixTime) {
-        int rtc;
         logRecord->UNIXtime = UnixTime;
-        logReadKey(logRecord);
+        int rtc = logReadKey(logRecord);
         trace(T_GFD,2);
         *replyData += '[';  //  + String(UnixTime) + "000,";
         double elapsedHours = logRecord->logHours - lastRecord->logHours;
