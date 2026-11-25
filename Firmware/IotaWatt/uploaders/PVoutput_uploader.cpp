@@ -90,6 +90,12 @@ void PVoutput_uploader::getStatusJson(JsonObject& status){
 //******************************************************************************************************************/
 uint32_t PVoutput_uploader::tick(struct serviceBlock* serviceBlock){
     trace(T_PVoutput,0);
+            // stop/end are otherwise only checked in uploadStatus, which a service that can't reach
+            // the server (bad key, no internet) never gets to. Route there from the start-up states.
+    if((_stop || _end) && (_state == initialize || _state == getSystemService || _state == checkSystemService ||
+                           _state == getStatus || _state == gotStatus)){
+        _state = uploadStatus;
+    }
     switch (_state) {
         case initialize:            {return handle_initialize_s();}
         case getSystemService:      {return tickGetSystemService();}
@@ -124,7 +130,9 @@ uint32_t PVoutput_uploader::handle_stopped_s(){
     if(_stop){
         return UTCtime() + 1;
     }
-    _state = uploadStatus;
+            // Started again. If it was stopped before it ever got the system and status (stop set at
+            // boot, B64), set up first: the upload step needs the interval and the last post time.
+    _state = _interval ? uploadStatus : (_started ? getSystemService : initialize);
     return 1;
     
 }
@@ -729,6 +737,7 @@ bool PVoutput_uploader::config(const char* configObj){
     if(config["type"].as<String>() != "pvoutput"){
         return false;
     }
+    _end = false;                           // configured again before a pending end() took effect
     trace(T_PVoutput,201);
     if(_revision == jInt<int32_t>(config["revision"])){
         return true;
