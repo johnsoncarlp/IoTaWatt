@@ -39,7 +39,16 @@ inline size_t    spiffsWrite(const char*, String, bool = false) { return 0; }
 inline size_t    spiffsWrite(const char*, uint8_t*, size_t len, bool = false) { return len; }
 
 // ---- WiFi, HTTP tokens, scheduler ----
-struct HostWiFi { bool connected = true; bool isConnected() { return connected; } };
+struct HostWiFi {
+  bool connected = true; int disconnects = 0;
+  bool isConnected() { return connected; }
+  String SSID() { return String("TestNet"); }
+  IPAddress localIP() { return IPAddress(192, 168, 1, 50); }
+  int channel() { return 6; }
+  int RSSI() { return -61; }
+  String macAddress() { return String("AA:BB:CC:DD:EE:FF"); }
+  void disconnect(bool = false) { disconnects++; }
+};
 inline HostWiFi WiFi;
 inline int hostHttpTokens = 0;
 inline uint32_t HTTPreserve(uint16_t, bool = false) { return ++hostHttpTokens; }

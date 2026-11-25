@@ -16,6 +16,8 @@ class xbuf {
   template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
   size_t print(T v) { std::string t = std::to_string(v); _s += t; return t.size(); }
   size_t write(const char* s) { return print(s); }
+  template <class T> size_t println(const T& v) { size_t n = print(v); _s += "\r\n"; return n + 2; }
+  size_t println() { _s += "\r\n"; return 2; }
   size_t write(const String& s) { return print(s); }
   size_t write(char c) { return print(c); }
   size_t write(uint8_t c) { _s += (char)c; return 1; }

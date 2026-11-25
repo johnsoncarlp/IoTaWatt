@@ -1,5 +1,9 @@
 #ifdef IOTAWATT_HOST_TEST
+#ifdef IOTAWATT_HOST_WEB
+#include "host_web_deps.h"              // host unit tests: web server suite
+#else
 #include "host_query_deps.h"            // host unit tests (Firmware/test/shim)
+#endif
 #include "host_xbuf.h"
 #include "CSVquery.h"
 #else

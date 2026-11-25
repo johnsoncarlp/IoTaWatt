@@ -1,5 +1,5 @@
 #ifdef IOTAWATT_HOST_TEST
-#include "host_config_deps.h"           // host unit tests (Firmware/test/shim)
+#include "host_channel_deps.h"          // host unit tests (Firmware/test/shim)
 #else
 #include <IotaWatt.h>
 #endif

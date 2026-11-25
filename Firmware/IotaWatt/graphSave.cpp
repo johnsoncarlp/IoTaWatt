@@ -1,4 +1,8 @@
- #include "IotaWatt.h"
+#ifdef IOTAWATT_HOST_TEST
+#include "host_web_deps.h"              // host unit tests (Firmware/test/shim)
+#else
+#include "IotaWatt.h"
+#endif
 
 #define graphDir "graphs"
 String hashName(const char* name);

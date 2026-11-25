@@ -4,6 +4,7 @@
 #include <map>
 #include "host_iotawatt.h"
 #include "host_script_deps.h"
+#include "host_channel_deps.h"
 #include "IotaLog.h"
 #include "timeServices.h"
 
@@ -28,8 +29,6 @@ inline uint8_t   configSHA256[32];
 inline int16_t*  masterPhaseArray = nullptr;
 inline ScriptSet* outputs = new ScriptSet();
 inline IotaLog   Current_log;
-inline float     frequency = 60;
-inline uint8_t   deviceMajorVersion = 5;
 
 String JsonSummary(File file, int depth);
 char*  JsonDetail(File file, JsonArray locator);

@@ -1,6 +1,10 @@
 #ifndef webServer_h
 #define webServer_h
+#ifdef IOTAWATT_HOST_TEST
+#include "host_web_deps.h"              // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 #include "auth.h"
 #include <libb64/cdecode.h>
 
@@ -40,5 +44,8 @@ void handlePasswords();
 void handleQuery();
 void handleUpdate();
 void handleDSTtest();
+#ifdef IOTAWATT_HOST_TEST                       // host unit tests: F() yields const char* there
+inline bool serverOn(authLevel l, const char* uri, HTTPMethod m, genericHandler fn){ return serverOn(l, (const __FlashStringHelper*)uri, m, fn); }
+#endif
 
 #endif

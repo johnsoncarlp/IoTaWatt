@@ -17,7 +17,8 @@ struct integrator {
   double run(IotaLogRecord*, IotaLogRecord*, units Units, char method) { lastUnits = Units; lastMethod = method; return value; }
   bool config(Script*) { return true; }
   void end() { ended = true; }
-  IotaLog* get_log() { return nullptr; }
+  IotaLog* log = nullptr;                      // set by a test to report an integration log
+  IotaLog* get_log() { return log; }
 };
 
 class simSolar {

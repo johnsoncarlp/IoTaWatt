@@ -27,6 +27,7 @@ class String {
   int indexOf(char c, unsigned int from = 0) const { auto p = _s.find(c, from); return p == std::string::npos ? -1 : (int)p; }
   int indexOf(const String& t, unsigned int from = 0) const { auto p = _s.find(t._s, from); return p == std::string::npos ? -1 : (int)p; }
   int lastIndexOf(char c) const { auto p = _s.rfind(c); return p == std::string::npos ? -1 : (int)p; }
+  int lastIndexOf(const String& t) const { auto p = _s.rfind(t._s); return p == std::string::npos ? -1 : (int)p; }
   String substring(unsigned int from) const { return from >= _s.size() ? String() : String(_s.substr(from)); }
   String substring(unsigned int from, unsigned int to) const {
     if (from > to) std::swap(from, to);
