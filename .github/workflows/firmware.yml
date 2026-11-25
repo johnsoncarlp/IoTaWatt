@@ -1,0 +1,31 @@
+name: firmware
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Firmware
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('Firmware/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Host unit tests (sanitizers on)
+        run: pio test -e native
+      - name: Build device firmware (core 3.1.2)
+        run: pio run -e core3
+      - name: Build device firmware (original core 2.6)
+        run: pio run -e iotawatt
+      - name: Report image sizes
+        run: ls -l .pio/build/core3/firmware.bin .pio/build/iotawatt/firmware.bin
