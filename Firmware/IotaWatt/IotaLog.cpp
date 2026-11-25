@@ -132,7 +132,7 @@ int IotaLog::readKey (IotaLogRecord* callerRecord){
 	if(key >= _lastKey){														// Back to the future
 		readSerial(callerRecord, _lastSerial);
 		callerRecord->UNIXtime = key;
-		if(key = _lastKey) return 0;
+		if(key == _lastKey) return 0;
 		return 1;
 	}
 	
