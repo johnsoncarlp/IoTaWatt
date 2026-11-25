@@ -50,6 +50,7 @@ String  JsonSummary(File file, int depth){
                 string = true;
             }
             else if(_char == '{'){
+                if(level + 1 >= (int)sizeof(delim)) return String();    // nested too deep: not a usable file
                 delim[++level] = '}';
                 if(level == depth){
                     varBeg = file.position()-1;
@@ -57,13 +58,14 @@ String  JsonSummary(File file, int depth){
                 }
             }
             else if(_char == '['){
+                if(level + 1 >= (int)sizeof(delim)) return String();
                 delim[++level] = ']';
                 if(level == depth){
                     varBeg = file.position()-1;
                     varLen = 0;
                 }
             }
-            else if(_char == delim[level]){
+            else if(level >= 0 && _char == delim[level]){         // was delim[-1] before any opening bracket
                 level--;
                 if(level == depth - 1){
                     JsonOut.printf_P(PSTR("[%d,%d"), varBeg, varLen+1);
