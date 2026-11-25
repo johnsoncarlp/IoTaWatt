@@ -127,7 +127,7 @@ uint32_t influxDB2_uploader::handle_checkQuery_s(){
         return 1;
     }
     for (int i = 0; i < headline.length(); i++){
-        if(strcmp(headline[i],"_time")){
+        if(strcmp(headline[i],"_time") == 0 || strcmp(headline[i],"_time\r") == 0){   // lines end in CRLF
             char *data = dataline[i];
             if(data){
                 _lastSent = strtol(data, 0, 10);
@@ -142,7 +142,7 @@ uint32_t influxDB2_uploader::handle_checkQuery_s(){
             }
         }
     }
-    delete _statusMessage;
+    delete[] _statusMessage;
     _statusMessage = charstar("Last sent query invalid, delay and retry.");
     _lookbackHours = 0;
     delay(600, query_s);

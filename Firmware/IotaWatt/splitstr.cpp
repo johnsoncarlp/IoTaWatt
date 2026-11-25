@@ -27,7 +27,7 @@ splitstr::splitstr(const char *line, const char sepchar, const char endchar):
     char *end = strchr(line, endchar);
     if (end)
     {
-        _line = new char[end - line] + 1;
+        _line = new char[end - line + 1];
         memcpy(_line, line, end - line);
         _line[end - line] = 0;
         char *ptr = _line;
@@ -45,9 +45,9 @@ splitstr::splitstr(const char *line, const char sepchar, const char endchar):
             _entry[i] = ptr;
             ptr += strlen(ptr);
             char *trim = ptr;
-            while (*(--trim) == ' ')
-                ;
-            *(trim + 1) = 0;
+            while (trim > _entry[i] && *(trim - 1) == ' ')
+                trim--;
+            *trim = 0;
         }
     }
 }
