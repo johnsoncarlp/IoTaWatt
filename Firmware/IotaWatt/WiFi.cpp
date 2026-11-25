@@ -29,6 +29,7 @@ uint32_t WiFiService(struct serviceBlock* _serviceBlock) {
       WiFi.hostname(deviceName);
       log("WiFi connected. SSID=%s, IP=%s, channel=%d, RSSI %ddb", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str(), WiFi.channel(), WiFi.RSSI());
     }
+    wifiRoamConnected();                // move to a clearly stronger access point (wifiRoam.h)
     if( ! mDNSstarted){
       if (MDNS.begin(deviceName)) {
         MDNS.addService("http", "tcp", 80);
@@ -52,10 +53,13 @@ uint32_t WiFiService(struct serviceBlock* _serviceBlock) {
       lastDisconnect = UTCtime();
       log("WiFi disconnected.");
     }
-    else if((UTCtime() - lastDisconnect) >= restartInterval){
-      log("WiFi disconnected more than %d minutes, restarting.", restartInterval / 60);
-      delay(500);
-      ESP.restart();
+    else {
+      wifiRoamDisconnected(UTCtime() - lastDisconnect);   // unlock a roam's access point (wifiRoam.h)
+      if((UTCtime() - lastDisconnect) >= restartInterval){
+        log("WiFi disconnected more than %d minutes, restarting.", restartInterval / 60);
+        delay(500);
+        ESP.restart();
+      }
     }
   }
 

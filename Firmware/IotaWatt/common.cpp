@@ -141,6 +141,7 @@ simSolar *simsolar = nullptr;
 // Define filename Strings of system files.          
 
 char* deviceName;             
+bool  wifiRoam = true;                        // "roam" device setting: move to stronger access points (wifiRoam.h)
 bool  webuiFromSD = false;                    // "sdwebui" device setting: serve web UI files from SD (webui.h)
 char* ntpServers = nullptr;                   // "ntp" device setting: time servers (nullptr = automatic)
                        

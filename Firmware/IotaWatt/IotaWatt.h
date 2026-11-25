@@ -72,6 +72,7 @@
 #include "xurl.h"
 #include "simSolar.h"
 #include "webui.h"
+#include "wifiRoam.h"
 
       // Declare global instances of classes
 
@@ -113,6 +114,7 @@ extern simSolar *simsolar;
 #define IOTA_TABLE_DIR        "/download/tables/"
 
 extern char* deviceName;
+extern bool  wifiRoam;                        // "roam" device setting: move to stronger access points (wifiRoam.h)
 extern bool  webuiFromSD;                     // "sdwebui" device setting: serve web UI files from SD (webui.h)
 extern char* ntpServers;                      // "ntp" device setting: time servers (nullptr = automatic)
 
