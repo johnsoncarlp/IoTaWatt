@@ -81,7 +81,8 @@ float IotaInputChannel::getPhase(const float var){
 
 float IotaInputChannel::lookupPhase(int16_t* pArray, const float var){
     int16_t* array = pArray;
-    int16_t intVar = var * 100;
+    float scaled = var * 100;                       // was int16_t intVar = var * 100: UB above 327.67 A (or V)
+    int32_t intVar = (scaled == scaled) ? (int32_t)fmaxf(-32768.0f, fminf(32767.0f, scaled)) : 0;
     while(*(array+1) && *(array+1) <= intVar){
         array += 2;
     }
