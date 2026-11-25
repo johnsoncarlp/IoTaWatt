@@ -1,5 +1,6 @@
 #include "IotaWatt.h"
 #include "ntpCheck.h"
+#include <sntp.h>                       // sntp_getserver(): time servers from DHCP
 
 #define ntpPort 2390 
   struct ntpPacket {  /* courtesy Eugene Ma */
@@ -45,6 +46,18 @@
  * Service logs when no reality check after 24 hours.
  *******************************************************************************************/
  
+        // A request to the current source failed: count it (ntpFallback, ntpCheck.h) and retry after.
+
+static uint32_t ntpFailed(uint8_t& fromSource, uint8_t source, uint8_t& failures, uint32_t retryAt){
+  uint8_t next = ntpFallback(fromSource, source, failures, false);
+  if(next != fromSource && next != ntpConfigured){
+    log("timeSync: no reply from the %s time server(s), trying the next source.",
+        source == ntpConfigured ? "configured" : source == ntpDHCP ? "DHCP" : "default");
+  }
+  fromSource = next;
+  return retryAt;
+}
+
 uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   WiFiUDP udp;
   static uint32_t lastNTPupdate = 0;
@@ -52,6 +65,10 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   static uint32_t prevDiff = 0;
   static IPAddress prevIP;
   static uint8_t  serverIndex = 0;     
+  static uint8_t  lastSource = 0;
+  static uint8_t  fromSource = ntpConfigured;   // ntpFallback(): sources tried from this one on
+  static uint8_t  failures = 0;
+  static uint8_t  source = 0;
   uint32_t sendMillis = 0;
   uint32_t origin_sec = 0;
   uint32_t origin_frac = 0;
@@ -89,9 +106,18 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
         // Send an SNTP request.
 
   trace(T_timeSync, 31);
-  String serverName("time1.google.com");
-  serverName[4] += (++serverIndex % 4);    
-  if(WiFi.hostByName(serverName.c_str(), timeServerIP) == 1){    // get a random server from the pool
+  uint32_t dhcpServers[SNTP_MAX_SERVERS];
+  for(int i=0; i<SNTP_MAX_SERVERS; i++){
+    const ip_addr_t* addr = sntp_getserver(i);
+    dhcpServers[i] = (addr && IP_IS_V4(addr)) ? ip4_addr_get_u32(ip_2_ip4(addr)) : 0;
+  }
+  char serverName[80];
+  source = ntpServerName(++serverIndex, ntpServers, dhcpServers, SNTP_MAX_SERVERS, serverName, sizeof(serverName), fromSource);
+  if(source != lastSource){
+    log("timeSync: using %s time server %s", source == ntpConfigured ? "configured" : source == ntpDHCP ? "DHCP" : "default", serverName);
+    lastSource = source;
+  }
+  if(WiFi.hostByName(serverName, timeServerIP) == 1){             // name or dotted IP from the rotation
     trace(T_timeSync, 32);
     ntpPacket packet;
     sendMillis = millis();
@@ -104,7 +130,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   } 
   else {
     trace(T_timeSync, 33);
-    return UTCtime() + (RTCrunning ? 60 : 5);
+    return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 5));
   }
   
         // Poll for completion
@@ -115,7 +141,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
     if(millis() - sendMillis > (RTCrunning ? 3000 : 10000)){
       trace(T_timeSync, 42);
       udp.stop();
-      return UTCtime() + (RTCrunning ? 60 : 5);
+      return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 5));
     }
   }
 
@@ -136,7 +162,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
 
   trace(T_timeSync, 6);
   if(packetSize < sizeof(ntpPacket) || recvMillis - sendMillis > (RTCrunning ? 3000 : 10000)){
-    return UTCtime() + (RTCrunning ? 60 : 5);
+    return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 5));
   }
 
         // Check for Kiss-o'-Death packet
@@ -145,17 +171,17 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   if(packet.stratum == 0){
     log("timesync: Kiss-o'-Death, code %c%c%c%c, ip: %s", 
     packet.referenceID[0], packet.referenceID[1], packet.referenceID[2], packet.referenceID[3], timeServerIP.toString().c_str());
-    return UTCtime() + (RTCrunning ? 60 : 15);
+    return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 15));
   } 
 
   trace(T_timeSync, 8);
   if(packet.origin_ts_sec != origin_sec || packet.origin_ts_frac != origin_frac){
     trace(T_timeSync, 81);
-    return UTCtime() + (RTCrunning ? 60 : 5);
+    return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 5));
   }
   if( ! ntpReplyPlausible(packet.flags, packet.trans_ts_sec)){       // see ntpCheck.h
     trace(T_timeSync, 82);
-    return UTCtime() + (RTCrunning ? 60 : 5);
+    return ntpFailed(fromSource, source, failures, UTCtime() + (RTCrunning ? 60 : 5));
   }
 
         // compute time as NTP transmit time + 1/2 transaction duration.
@@ -186,6 +212,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
     //log("Comput sec: %u, frac: %u, duration: %d", current_ts_sec, current_ts_frac, duration);
   // } 
   prevDiff = 0;
+  fromSource = ntpFallback(fromSource, source, failures, true);
   
         // Set/adjust internal clock
 

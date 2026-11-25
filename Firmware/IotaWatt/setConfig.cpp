@@ -296,6 +296,18 @@ bool configDevice(const char* JsonStr){
     delete[] deviceName;
     deviceName = charstar(jStr(device[F("name")]));
   }
+
+        // Time servers: blank or missing = automatic (DHCP option 42, then the defaults).
+
+  delete[] ntpServers;
+  ntpServers = nullptr;
+  {
+    String ntp = jStr(device[F("ntp")]);
+    ntp.trim();
+    if(ntp.length()){
+      ntpServers = charstar(ntp.c_str());
+    }
+  }
       
   if( ! device[F("refvolts")].isNull()){
     VrefVolts = jFloat(device[F("refvolts")]);

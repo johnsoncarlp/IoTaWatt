@@ -1,4 +1,5 @@
 #include "IotaWatt.h"
+#include <sntp.h>                       // sntp_servermode_dhcp()
 #include "user_interface.h"
 #include "splitstr.h"
 #include "uploaders/Uploader_Registry.h"
@@ -185,6 +186,7 @@ declare_uploaders();
   WiFi.hostname(deviceName);
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
+  sntp_servermode_dhcp(1);              // accept time servers from DHCP option 42 (read by timeSync)
   WiFi.begin();
   if(WiFi.status() != WL_CONNECTED){
     WiFi.reconnect();

@@ -112,6 +112,7 @@ extern simSolar *simsolar;
 #define IOTA_TABLE_DIR        "/download/tables/"
 
 extern char* deviceName;
+extern char* ntpServers;                      // "ntp" device setting: time servers (nullptr = automatic)
 
         // Define the hardware pins
 

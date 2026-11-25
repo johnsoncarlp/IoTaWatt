@@ -21,6 +21,7 @@ inline char*     updateClass = nullptr;
 inline int32_t   localTimeDiff = 0;
 inline tzRule*   timezoneRule = nullptr;
 inline char*     deviceName = nullptr;
+inline char*     ntpServers = nullptr;
 inline char*     HTTPSproxy = nullptr;
 inline float     VrefVolts = 2.5;
 inline uint8_t   ADC_selectPin[2] = {pin_CS_ADC0, pin_CS_ADC1};

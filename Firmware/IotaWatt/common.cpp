@@ -141,6 +141,7 @@ simSolar *simsolar = nullptr;
 // Define filename Strings of system files.          
 
 char* deviceName;             
+char* ntpServers = nullptr;                   // "ntp" device setting: time servers (nullptr = automatic)
                        
 uint8_t ADC_selectPin[2] = {pin_CS_ADC0,        // indexable reference for ADC select pins
                             pin_CS_ADC1};  
