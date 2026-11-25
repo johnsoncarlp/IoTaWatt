@@ -141,6 +141,7 @@ simSolar *simsolar = nullptr;
 // Define filename Strings of system files.          
 
 char* deviceName;             
+bool  webuiFromSD = false;                    // "sdwebui" device setting: serve web UI files from SD (webui.h)
 char* ntpServers = nullptr;                   // "ntp" device setting: time servers (nullptr = automatic)
                        
 uint8_t ADC_selectPin[2] = {pin_CS_ADC0,        // indexable reference for ADC select pins

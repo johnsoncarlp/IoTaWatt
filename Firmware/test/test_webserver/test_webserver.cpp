@@ -15,6 +15,7 @@
 #include "CSVquery.cpp"
 #include "webServer.cpp"
 #include "graphSave.cpp"
+#include "webui.cpp"
 bool auth(authLevel) { return hostAuthResult; }          // auth.cpp isn't under test here
 
 static uint32_t T0;

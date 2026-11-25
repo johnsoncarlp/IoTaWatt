@@ -303,6 +303,7 @@ bool configDevice(const char* JsonStr){
     int32_t interval = jInt<int32_t>(device[F("ntpinterval")]);
     timeSynchInterval = interval ? constrain(interval, 300, 86400) : 3600;
   }
+  webuiFromSD = jBool(device[F("sdwebui")]);      // web UI files from SD instead of embedded (webui.h)
 
         // Time servers: blank or missing = automatic (DHCP option 42, then the defaults).
 

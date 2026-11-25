@@ -47,6 +47,8 @@ struct HostSerial {
 };
 inline void delay(unsigned long) {}
 #define strcmp_P strcmp
+#define strcasecmp_P strcasecmp
+#define strncpy_P strncpy
 inline HostSerial Serial;
 
 struct IPAddress {

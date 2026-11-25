@@ -176,7 +176,14 @@ declare_uploaders();
   }
 
   log("Local time zone: %+d:%02d%s", (int)localTimeDiff/60, (int)localTimeDiff%60, timezoneRule ? ", using DST/BST when in effect." : "");
-  log("device name: %s", deviceName); 
+  log("device name: %s", deviceName);
+
+#ifdef IOTAWATT_EMBED_WEBUI
+  log("webui: %s web UI %s", webuiFromSD ? "SD card (embedded as fallback)," : "embedded", WEBUI_ID);
+  if( ! webuiFromSD){
+    webuiCleanSD();                     // move old SD copies aside so nothing stale remains
+  }
+#endif 
 
 //************************************* Load passwords *******************************************
 

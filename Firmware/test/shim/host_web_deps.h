@@ -51,6 +51,7 @@ class HostWebServer {
   void send(int code, const String& type, const String& body) { send(code, type.c_str(), body); }
   void send(int code, const char* type, const char* body) { send(code, type, String(body)); }
   void send(int code, const char* type = "") { send(code, type, String()); }
+  void send_P(int code, const char* type, const char* data, size_t n) { responses.push_back({code, type ? type : "", std::string(data, n)}); }
   void sendHeader(const String& n, const String& v, bool = false) { sentHeaders[n.str()] = v.str(); }
   void setContentLength(size_t n) { contentLength = n; }
   void sendContent(const String& s) { content += s.str(); hostMillis += millisPerChunk; }
@@ -67,6 +68,7 @@ class HostWebServer {
 };
 inline HostWebServer server;
 inline bool serverAvailable = true;
+inline bool webuiFromSD = false;
 
 // ---- status globals ----
 inline IotaLogRecord statRecord;

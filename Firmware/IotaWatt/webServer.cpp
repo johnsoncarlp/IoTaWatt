@@ -1,6 +1,7 @@
 #ifdef IOTAWATT_HOST_TEST
 #include "host_web_deps.h"              // host unit tests (Firmware/test/shim)
 #include "webServer.h"
+#include "webui.h"
 #else
 #include "IotaWatt.h"
 #include "uploaders/Uploader_Registry.h"
@@ -172,6 +173,13 @@ bool loadFromSdCard(String path){
     level = authUser;
   }
   if( ! authenticate(level)) return true;
+
+#ifdef IOTAWATT_EMBED_WEBUI
+  if(webuiUseEmbedded(path.c_str(), (bool)dataFile && ! dataFile.isDirectory(), server.arg(F("ui")) == "embedded")){
+    webuiServe(path.c_str(), dataType.c_str());
+    return true;
+  }
+#endif
 
   if (server.hasArg(F("download"))){
     if(server.arg(F("download")) == "true") dataType = F("application/octet-stream");  
