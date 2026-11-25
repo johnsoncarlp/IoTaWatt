@@ -53,6 +53,10 @@ uint32_t uploader_dispatch(struct serviceBlock* serviceBlock) {
 uint32_t Uploader::dispatch(struct serviceBlock *serviceBlock)
 {
     trace(T_uploader,2,_state);
+    if( ! _outputs && (_state == initialize_s || _state == query_s || _state == write_s)){
+        stop();                             // configured without outputs (config() returned false): nothing to send
+        return 1;
+    }
     switch (_state) {
         case initialize_s:
             return handle_initialize_s();
@@ -360,6 +364,7 @@ bool Uploader::config(const char *jsonConfig)
 
     trace(T_uploader,101);
     delete _outputs;
+    _outputs = nullptr;                     // a config without outputs leaves none, not a freed one (B65)
     JsonVariant var = config["outputs"];
     if( ! var.isNull()){
         trace(T_uploader,102);

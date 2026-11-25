@@ -49,7 +49,7 @@ class Uploader
                     
                     {};
         
-                    ~Uploader(){
+                    virtual ~Uploader(){        // virtual: uploaders end with delete this via Uploader*
             delete[] _statusMessage;
             delete _POSTrequest;
             delete _request;
