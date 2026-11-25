@@ -19,6 +19,7 @@ using std::min;
 #endif
 #define PSTR(s) (s)
 #define F(s) (s)
+#define FPSTR(s) (s)
 
 // Messages the firmware logs: tests can inspect them.
 inline std::vector<std::string> hostLog;

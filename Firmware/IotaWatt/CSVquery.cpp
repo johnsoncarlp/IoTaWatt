@@ -1,4 +1,10 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_query_deps.h"            // host unit tests (Firmware/test/shim)
+#include "host_xbuf.h"
+#include "CSVquery.h"
+#else
 #include "IotaWatt.h"
+#endif
 
 CSVquery::CSVquery()
     :_oldRec(nullptr)
