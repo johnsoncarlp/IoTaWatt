@@ -14,3 +14,4 @@ Each `test_*` folder is one test program (Unity). Device code is compiled direct
 | `test_splitstr` | `splitstr` parsing, trimming and edge cases (run under AddressSanitizer) |
 | `test_ntp` | `ntpReplyPlausible()`: NTP reply validation across 2028, the 2036 NTP rollover, up to 2106 |
 | `test_iotalog` | IotaLog against a model: keyed reads, holes, bounds, wrap, reopen/findWrap, write cache, damaged and truncated files, random workload, a synthesized 3.84 GB wrapped log (>2 GB math) |
+| `test_iotascript` | Script engine: every unit, left-to-right evaluation, parentheses, min/max/abs, divide by zero, integrations, per-unit precision, JSON ScriptSet + sort; bad scripts, 31+ constants, long integration names, random-script fuzz |
