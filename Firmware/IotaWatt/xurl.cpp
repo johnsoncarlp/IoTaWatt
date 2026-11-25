@@ -48,7 +48,7 @@ bool    xurl::parse(const char* _url_){
             // parse domain
 
         loc = pos;
-        while(*loc != 0 && *loc != ':' && *loc != '/'){
+        while(*loc != 0 && *loc != ':' && *loc != '/' && *loc != '?'){
             loc++;
         }
         
