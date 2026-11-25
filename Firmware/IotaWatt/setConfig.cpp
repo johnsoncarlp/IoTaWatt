@@ -449,6 +449,13 @@ bool configInputs(const char* JsonStr){
       inputChannel[i]->_name = charstar(jStr(input[F("name")]));
       delete[] inputChannel[i]->_model;
       inputChannel[i]->_model = charstar(jStr(input[F("model")]));
+      if( ! inputChannel[i]->_name){            // missing name/model: defaults, never null (strcmp'd and printed)
+        inputChannel[i]->_name = charstar(String("Input(") + String(i) + ")");
+      }
+      if( ! inputChannel[i]->_model){
+        inputChannel[i]->_model = new char[1];
+        inputChannel[i]->_model[0] = 0;
+      }
       // Fix name change that removed (USA) in table
       if(strcmp_P(inputChannel[i]->_model,PSTR("TDC DA-10-09(USA)")) == 0){
         inputChannel[i]->_model[12] = 0;
