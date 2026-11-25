@@ -16,6 +16,7 @@ struct {
 
 int IotaLog::begin (const char* path ){
 	if(IotaFile) return 0;
+	delete[] _path;                         // reopened after end(): don't leak the previous path
 	_path = charstar(path);
 	if(!SD.exists(_path)){
 		String logPath = _path;
