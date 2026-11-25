@@ -9,5 +9,8 @@
 #include <cmath>
 typedef uint8_t byte;
 typedef bool boolean;
+inline uint32_t hostMillis = 0;                    // tests advance this
+inline uint32_t millis() { return hostMillis; }
+inline unsigned long micros() { return 0; }        // Crypto's RNG references micros(); unused by the tests
 #include "host_string.h"                 // ::String, which ArduinoJson uses (ARDUINOJSON_ENABLE_ARDUINO_STRING)
 #endif

@@ -74,8 +74,6 @@ inline char* charstar(const String& s) { return charstar(s.c_str()); }
 
 // ---- used by IotaScript, IotaInputChannel and the units under test that need time ----
 typedef uint32_t uint32;
-inline uint32_t hostMillis = 0;
-inline uint32_t millis() { return hostMillis; }
 #define trace(...) ((void)0)
 inline int32_t hostLocalOffset = 0;                 // seconds east of UTC
 inline uint32_t localTime(uint32_t utc) { return utc + hostLocalOffset; }

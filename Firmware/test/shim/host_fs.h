@@ -143,6 +143,9 @@ class SDClass {
     auto it = _files.find(norm(from)); if (it == _files.end()) return false;
     auto d = it->second; _files.erase(it); _files[norm(to)] = d; return true;
   }
+  void removePrefix(const char* prefix) {
+    for (auto it = _files.begin(); it != _files.end();) it = it->first.rfind(prefix, 0) == 0 ? _files.erase(it) : std::next(it);
+  }
   // test helpers
   std::shared_ptr<HostFileData> data(const char* path) { auto it = _files.find(norm(path)); return it == _files.end() ? nullptr : it->second; }
   std::shared_ptr<HostFileData> create(const char* path) { return _files[norm(path)] = std::make_shared<HostFileData>(); }
