@@ -42,6 +42,8 @@ uint32_t  local2UTC(uint32_t localTime){
 bool testRule(uint32_t standardTime, dateTimeRule dtrule){
     uint8_t daysInMonth[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
     DateTime now = DateTime(standardTime);
+    int year = now.year();
+    if(year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) daysInMonth[1] = 29;   // was always 28
     if(now.month() < dtrule.month) return false;
     if(now.month() > dtrule.month) return true;
     int fwdm = ((standardTime-(now.day()-1)*86400)/86400+4)%7+1;     // weekday of first day in month
