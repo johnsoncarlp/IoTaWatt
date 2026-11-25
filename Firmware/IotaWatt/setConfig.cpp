@@ -696,7 +696,8 @@ bool configMasterPhaseArray(){
   for(int t=0; t<models; t++){
     trace(T_CONFIG, 21);
     tableFile.seek(0);
-    if(tableFile.find(table[t].model)){
+    String quotedModel = String("\"") + table[t].model + "\"";   // exact match: "TDC DA-10-09" is a prefix of "TDC DA-10-09-E6"
+    if(tableFile.find(quotedModel.c_str())){
       trace(T_CONFIG, 22);
       int pos = tableFile.position();
       if(tableFile.findUntil("\"p50\":", 6, "}", 1)){
