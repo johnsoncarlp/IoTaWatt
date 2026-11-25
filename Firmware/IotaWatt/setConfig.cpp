@@ -635,7 +635,7 @@ bool arrayCopy(File tableFile, int16_t** entry){
       return false;
     }
     int count = 0;
-    int len = tableFile.readBytesUntil(']', buf, 100);
+    int len = tableFile.readBytesUntil(']', buf, sizeof(buf) - 1);   // was 100: buf[len] = 0 wrote past the end
     buf[len] = 0;
     char* pos = buf;
     while(*pos != 0){
