@@ -170,6 +170,9 @@ boolean setConfig(const char* configPath){
     }
     trace(T_CONFIG,30,2);
     configOutputs(outputsStr);
+    if( ! outputs){                           // parse failed: never leave outputs null (status/query/feed use it)
+      outputs = new ScriptSet();
+    }
     trace(T_CONFIG,30,3);
     delete[] outputsStr;
   }
