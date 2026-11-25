@@ -31,6 +31,8 @@ class Emoncms_uploader : public Uploader
             delete[] _node;
             delete[] _userID;
             delete[] _base64Sha;
+            delete[] _sha256;                       // were leaked each time the uploader ended
+            delete _outputs;
             emoncms = nullptr;
         };
 

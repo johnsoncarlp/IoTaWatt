@@ -379,7 +379,7 @@ bool Emoncms_uploader::configCB(JsonObject& config){
     }
     else {
         _encrypt = true;
-        _sha256 = new uint8_t[32];
+        if( ! _sha256) _sha256 = new uint8_t[32];     // kept across new revisions (B66)
     }
     trace(T_Emoncms,101);
     Script* script = _outputs->first();
