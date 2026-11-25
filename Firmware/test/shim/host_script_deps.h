@@ -10,6 +10,7 @@ inline int maxInputs = 0;
 inline ScriptSet* integrations = nullptr;
 
 struct integrator {
+  template <class R> void newLogEntry(R*, R*) {}      // dataLog's hook (integrator.cpp isn't under test)
   double value = 0;
   char lastMethod = 0;
   units lastUnits = unitsNone;

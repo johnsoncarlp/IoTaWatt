@@ -19,7 +19,11 @@
  * As with all of the SERVICES, it has a  single function call and is implimented as state machine.
  * Services should try not to execute for more than a few milliseconds at a time.
  **********************************************************************************************/
- #include "IotaWatt.h"
+#ifdef IOTAWATT_HOST_TEST
+#include "host_datalog_deps.h"          // host unit tests (Firmware/test/shim)
+#else
+#include "IotaWatt.h"
+#endif
  #define GapFill 600           // Fill in gaps of less than this seconds
  void dataLogWDT();
  void logtoHistory(IotaLogRecord* logRecord);
@@ -32,6 +36,9 @@
   static double accum2Then [MAXINPUTS];
   static uint32_t msThen = 0;
   static Ticker logWDT;
+#ifdef IOTAWATT_HOST_TEST
+  hostLogWDT = &logWDT;                 // host tests watch the watchdog
+#endif
 
   switch(state){
 
