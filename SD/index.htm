@@ -286,6 +286,7 @@
          *********************************************************************************************************************-->
 
             <div id="divStatus" class="body color_body" style="display:none">
+                <div id="statusSummary" class="statusSummary"></div>
 
                 <button id="tabIO" class="groupTab" onclick="toggleDisplay('statusIODiv')">Inputs/Outputs Status</button>
                 <div id="statusIODiv" class="statusDiv" style="display: block;">
@@ -2844,6 +2845,7 @@
 
         function statusDisplay(statusMessage) {
             var status = JSON.parse(statusMessage);
+            statusSummary(status);
             var statusTable = EbyId("statusTableL");
             statusTable.innerHTML = null;
             addRow();
@@ -2990,6 +2992,39 @@
                 if (units[u].unit == unitArg) return units[u].dp;
             }
             return 0;
+        }
+
+        // One always-visible line with the essentials (textContent only: values come from the device).
+        function statusSummary(status) {
+            var strip = EbyId("statusSummary");
+            strip.textContent = "";
+            function item(label, value, warn) {
+                var span = document.createElement("span");
+                if (warn) span.className = "warn";
+                if (label) {
+                    var b = document.createElement("b");
+                    b.textContent = label + " ";
+                    span.appendChild(b);
+                }
+                span.appendChild(document.createTextNode(value));
+                strip.appendChild(span);
+            }
+            if (config && config.device && config.device.name) item("", config.device.name);
+            if (status.stats) {
+                item("Firmware", status.stats.version);
+                item("Up", formatRunTime(status.stats.runseconds));
+                if (status.stats.frequency) item("Line", status.stats.frequency.toFixed(2) + " Hz");
+                if (status.stats.lowbat) item("", "RTC battery low", true);
+            }
+            if (status.wifi) {
+                var rssi = status.wifi.RSSI;
+                item("Wi-Fi", status.wifi.SSID + " (" + rssi + " dBm, ch " + status.wifi.channel + ")", rssi < -75);
+                item("IP", status.wifi.IP);
+            }
+            if (status.uploaders && status.uploaders.length) {
+                var running = status.uploaders.filter(function(u) { return u.status == "running"; }).length;
+                item("Uploaders", running + " of " + status.uploaders.length + " running", running < status.uploaders.length);
+            }
         }
 
         function formatRunTime(time) {
