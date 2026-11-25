@@ -1,4 +1,8 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_config_deps.h"           // host unit tests (Firmware/test/shim)
+#else
 #include <IotaWatt.h>
+#endif
 
 void IotaInputChannel::reset(){
     delete[] _name;

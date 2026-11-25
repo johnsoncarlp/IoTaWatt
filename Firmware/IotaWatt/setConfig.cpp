@@ -1,5 +1,9 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_config_deps.h"           // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
 #include "uploaders/Uploader_Registry.h"
+#endif
 
 bool configDevice(const char*);
 bool configDST(const char* JsonStr);

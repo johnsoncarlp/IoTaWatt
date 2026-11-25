@@ -13,12 +13,18 @@ struct integrator {
   double value = 0;
   char lastMethod = 0;
   units lastUnits = unitsNone;
+  bool ended = false;
   double run(IotaLogRecord*, IotaLogRecord*, units Units, char method) { lastUnits = Units; lastMethod = method; return value; }
+  bool config(Script*) { return true; }
+  void end() { ended = true; }
+  IotaLog* get_log() { return nullptr; }
 };
 
 class simSolar {
  public:
   double e = 0, p = 0;
+  int sunrise = 0, sunset = 0; uint32_t cfgPower = 0;
+  bool config(int r, int s, uint32_t pw) { sunrise = r; sunset = s; cfgPower = pw; return true; }
   double energy(uint32_t, uint32_t) { return e; }
   double power(uint32_t) { return p; }
 };

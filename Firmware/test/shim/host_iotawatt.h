@@ -30,9 +30,11 @@ inline void log(const char* fmt, ...) {
 struct HostSerial {
   int printf(const char*, ...) { return 0; }
   int printf_P(const char*, ...) { return 0; }
-  void print(...) {}
-  void println(...) {}
+  template <class... A> void print(A&&...) {}
+  template <class... A> void println(A&&...) {}
 };
+inline void delay(unsigned long) {}
+#define strcmp_P strcmp
 inline HostSerial Serial;
 
 struct HostESP {

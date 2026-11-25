@@ -17,6 +17,7 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <algorithm>
 #include "host_string.h"
 
 #define FILE_READ  0
@@ -85,6 +86,25 @@ class File {
   void close() { _d.reset(); }
   const char* name() const { return _name.c_str(); }
   bool isDirectory() const { return false; }
+  // Arduino Stream search helpers (no timeouts on a file)
+  bool findUntil(const char* target, size_t tlen, const char* term, size_t termlen) {
+    // Exact: compares the end of what was read with the target and the terminator, so overlapping
+    // prefixes ("aab" in "aaab") match as Arduino's findMulti() does (B94).
+    std::string seen; int c; size_t keep = std::max(tlen, termlen);
+    while ((c = read()) >= 0) {
+      seen += (char)c; if (seen.size() > keep) seen.erase(0, seen.size() - keep);
+      if (tlen && seen.size() >= tlen && seen.compare(seen.size() - tlen, tlen, target, tlen) == 0) return true;
+      if (termlen && seen.size() >= termlen && seen.compare(seen.size() - termlen, termlen, term, termlen) == 0) return false;
+    }
+    return false;
+  }
+  bool find(const char* target) { return findUntil(target, strlen(target), "", 0); }
+  bool find(char c) { char t[2] = {c, 0}; return find(t); }
+  size_t readBytesUntil(char terminator, char* buf, size_t len) {
+    size_t n = 0; int c;
+    while (n < len && (c = read()) >= 0 && c != terminator) buf[n++] = (char)c;
+    return n;
+  }
   size_t printf(const char* fmt, ...) __attribute__((format(printf, 2, 3))) {
     char b[512]; va_list a; va_start(a, fmt); int n = vsnprintf(b, sizeof b, fmt, a); va_end(a);
     return n > 0 ? write((const uint8_t*)b, std::min<size_t>(n, sizeof b - 1)) : 0;
@@ -119,6 +139,10 @@ class SDClass {
   bool mkdir(const String& path) { return mkdir(path.c_str()); }
   bool remove(const char* path) { return _files.erase(norm(path)) > 0; }
   bool remove(const String& path) { return remove(path.c_str()); }
+  bool rename(const char* from, const char* to) {
+    auto it = _files.find(norm(from)); if (it == _files.end()) return false;
+    auto d = it->second; _files.erase(it); _files[norm(to)] = d; return true;
+  }
   // test helpers
   std::shared_ptr<HostFileData> data(const char* path) { auto it = _files.find(norm(path)); return it == _files.end() ? nullptr : it->second; }
   std::shared_ptr<HostFileData> create(const char* path) { return _files[norm(path)] = std::make_shared<HostFileData>(); }
@@ -130,3 +154,4 @@ class SDClass {
   std::set<std::string> _dirs;
 };
 inline SDClass SD;
+inline SDClass& SDFS = SD;                       // the firmware uses both names for the same card

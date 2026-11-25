@@ -9,4 +9,5 @@
 #include <cmath>
 typedef uint8_t byte;
 typedef bool boolean;
+#include "host_string.h"                 // ::String, which ArduinoJson uses (ARDUINOJSON_ENABLE_ARDUINO_STRING)
 #endif
