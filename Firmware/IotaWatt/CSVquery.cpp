@@ -538,9 +538,12 @@ void CSVquery::buildLine(){
 }
 
 void CSVquery::printValue(const double value, const int8_t decimals){
-    char str[20];
-    snprintf(str,20,"%#.*f",decimals,value);
-    int len = strlen(str);
+    char str[40];
+    int len = snprintf(str,sizeof(str),"%#.*f",decimals,value);
+    if(len < 0 || len >= (int)sizeof(str)){     // too long to trim safely: print it whole
+        _buffer.printf("%.*f", decimals, value);
+        return;
+    }
     while(str[--len] == '0');
     if(str[len] == '.') --len;
     str[len+1] = 0;
