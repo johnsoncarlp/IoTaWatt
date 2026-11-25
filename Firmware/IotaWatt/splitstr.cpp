@@ -24,7 +24,7 @@ splitstr::splitstr(const char *line, const char sepchar, const char endchar):
         _line(0),
         _entry(0)
 {
-    char *end = strchr(line, endchar);
+    const char *end = strchr(line, endchar);
     if (end)
     {
         _line = new char[end - line + 1];
