@@ -83,7 +83,8 @@ uint32_t influxDB_uploader::handle_checkQuery_s(){
             trace(T_influx1,35);
             for(int i=0; i<columns.size(); i++){
                 trace(T_influx1,35);
-                if(strcmp("time",columns[i].as<const char*>()) == 0){
+                const char* column = columns[i].as<const char*>();     // null if the server sent a non-string
+                if(column && strcmp("time", column) == 0){
                     _lastSent = MAX(_lastSent, jInt<unsigned long>(values[i]));
                     break;
                 }
