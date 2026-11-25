@@ -552,6 +552,7 @@ Script* ScriptSet::script(const char *name){
           // Simple bubble sort
 
 void  ScriptSet::sort(std::function<int(Script*, Script*)> scriptCompare){
+  if(_count < 2) return;                    // nothing to sort; --count below assumes >= 1
   int count = _count;
   while(--count){
     Script* link = nullptr;
