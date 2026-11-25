@@ -148,9 +148,9 @@ void Uploader::HTTP(const char *method, const char* endpoint, states completionS
     if( ! _POSTrequest){
         _POSTrequest = new POSTrequest;
     }
-    delete _POSTrequest->endpoint;
+    delete[] _POSTrequest->endpoint;
     _POSTrequest->endpoint = charstar(endpoint);
-    delete _POSTrequest->contentType;
+    delete[] _POSTrequest->contentType;
     _POSTrequest->contentType = charstar(contentType);
     _POSTrequest->completionState = completionState;
     _POSTrequest->method = strcmp(method,"GET") == 0 ? method_GET : method_POST;
