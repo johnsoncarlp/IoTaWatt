@@ -184,6 +184,10 @@ bool    Script::encodeScript(const char* script){
   
   _tokens = new uint8_t[tokenCount + 1];
   _constants = new float[constantCount];
+  if(constantCount > 31){                   // constant index is a 5-bit token field (1..31)
+    _tokens[0] = opEq;
+    return false;
+  }
   int j = 0;
   int i = 0;     
   while(script[j]){
@@ -246,6 +250,10 @@ bool    Script::encodeScript(const char* script){
         }
         integration = integration->next();
         index++;
+      }
+      if(integration && index > 31){            // integration index is a 5-bit token field
+        log("Script: too many integrations to reference %.*s in script %s.", len, name, this->_name);
+        integration = nullptr;
       }
       if(integration){
         trace(T_Script, 28, index);
