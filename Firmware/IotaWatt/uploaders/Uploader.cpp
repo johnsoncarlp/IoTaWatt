@@ -1,4 +1,8 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 #include "Uploader.h"
 #include "splitstr.h"
 

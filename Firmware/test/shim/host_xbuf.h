@@ -16,6 +16,11 @@ class xbuf {
   template <class T, class = typename std::enable_if<std::is_integral<T>::value>::type>
   size_t print(T v) { std::string t = std::to_string(v); _s += t; return t.size(); }
   size_t write(const char* s) { return print(s); }
+  size_t write(const String& s) { return print(s); }
+  size_t write(char c) { return print(c); }
+  size_t write(uint8_t c) { _s += (char)c; return 1; }
+  void   flush() { _s.clear(); }
+  String peekString(int n) { return String(_s.substr(0, n)); }
   size_t write(const uint8_t* b, size_t n) { _s.append((const char*)b, n); return n; }
   size_t read(uint8_t* buf, size_t n) { n = std::min(n, _s.size()); memcpy(buf, _s.data(), n); _s.erase(0, n); return n; }
   size_t printf(const char* fmt, ...) __attribute__((format(printf, 2, 3))) {

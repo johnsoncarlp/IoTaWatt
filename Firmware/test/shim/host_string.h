@@ -21,6 +21,9 @@ class String {
   unsigned int length() const { return _s.size(); }
   char charAt(unsigned int i) const { return i < _s.size() ? _s[i] : 0; }
   char operator[](unsigned int i) const { return charAt(i); }
+  char& operator[](unsigned int i) {             // as the ESP8266 core: past the end -> a throwaway char
+    static char dummy_writable_char; if (i >= _s.size()) { dummy_writable_char = 0; return dummy_writable_char; } return _s[i];
+  }
   int indexOf(char c, unsigned int from = 0) const { auto p = _s.find(c, from); return p == std::string::npos ? -1 : (int)p; }
   int indexOf(const String& t, unsigned int from = 0) const { auto p = _s.find(t._s, from); return p == std::string::npos ? -1 : (int)p; }
   int lastIndexOf(char c) const { auto p = _s.rfind(c); return p == std::string::npos ? -1 : (int)p; }

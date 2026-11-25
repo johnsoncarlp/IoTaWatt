@@ -109,7 +109,7 @@ uint32_t influxDB2_uploader::handle_checkQuery_s(){
 
     // If no second line, query again.
 
-    char *datapos = strchr(response.c_str(), '\n');
+    const char *datapos = strchr(response.c_str(), '\n');
     trace(T_influx2,32);
     if(!datapos){
         trace(T_influx2,33);

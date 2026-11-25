@@ -18,7 +18,17 @@ using std::min;
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 #define PSTR(s) (s)
+#define PROGMEM
+#define PGM_P const char*
+#define strlen_P strlen
+#define strcpy_P strcpy
+#define memcpy_P memcpy
+#define sprintf_P sprintf
+#define snprintf_P snprintf
+#define pgm_read_byte(p) (*(const uint8_t*)(p))
+#define constrain(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
 #define F(s) (s)
+class __FlashStringHelper;                      // only named by overloads in the real utilities
 #define FPSTR(s) (s)
 
 // Messages the firmware logs: tests can inspect them.
@@ -62,28 +72,10 @@ struct DateTime {
   struct tm _tm{};
 };
 
-inline char* charstar(const char* str1, const char* str2 = nullptr) {
-  size_t l1 = str1 ? strlen(str1) : 0, l2 = str2 ? strlen(str2) : 0;
-  if (!(l1 + l2)) return nullptr;
-  char* p = new char[l1 + l2 + 1];
-  if (str1) strcpy(p, str1); else p[0] = 0;
-  if (str2) strcpy(p + l1, str2);
-  return p;
-}
-inline char* charstar(const String& s) { return charstar(s.c_str()); }
+#include "host_utilities_fakes.h"            // charstar, strcmp_ci (unless the real utilities.cpp is built)
 
 // ---- used by IotaScript, IotaInputChannel and the units under test that need time ----
 typedef uint32_t uint32;
 #define trace(...) ((void)0)
 inline int32_t hostLocalOffset = 0;                 // seconds east of UTC
 inline uint32_t localTime(uint32_t utc) { return utc + hostLocalOffset; }
-inline int strcmp_ci(const char* str1, const char* str2) {        // same algorithm as utilities.cpp
-  const char* char1 = str1; const char* char2 = str2;
-  while (*char1 || *char2) {
-    if (*(char1++) != *(char2++)) {
-      if (toupper(*(char1 - 1)) > toupper(*(char2 - 1))) return +1;
-      if (toupper(*(char1 - 1)) < toupper(*(char2 - 1))) return -1;
-    }
-  }
-  return 0;
-}

@@ -33,7 +33,9 @@ inline uint8_t   deviceMajorVersion = 5;
 
 String JsonSummary(File file, int depth);
 char*  JsonDetail(File file, JsonArray locator);
+#ifndef IOTAWATT_HOST_REAL_UTILITIES
 inline void hashFile(uint8_t* sha, File) { memset(sha, 0, 32); }
+#endif
 
 // SPIFFS in memory
 inline std::map<std::string, std::string> hostSpiffs;

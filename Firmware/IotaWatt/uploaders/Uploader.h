@@ -1,6 +1,10 @@
 #ifndef UPLOADER_H
 #define UPLOADER_H
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 #include "xurl.h"
 
 #define DEFAULT_BUFFER_LIMIT 4000

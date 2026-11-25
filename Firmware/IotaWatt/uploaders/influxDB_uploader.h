@@ -1,7 +1,11 @@
 #ifndef influxDB_uploader_h
 #define influxDB_uploader_h
 
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 #include "Uploader.h"
 
 extern uint32_t influxDB_v1_dispatch(struct serviceBlock *serviceBlock);

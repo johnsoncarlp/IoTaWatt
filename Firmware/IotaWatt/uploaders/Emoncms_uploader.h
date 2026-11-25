@@ -1,7 +1,11 @@
 #ifndef Emoncms_uploader_h
 #define Emoncms_uploader_h
 
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 #include "Uploader.h"
 
 //extern uint32_t emoncms_dispatch(struct serviceBlock *serviceBlock);

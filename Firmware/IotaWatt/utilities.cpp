@@ -1,4 +1,8 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+#else
 #include "IotaWatt.h"
+#endif
 
 /**************************************************************************************************
  * Case insensitive string compare.  Works just like strcmp() just case insensitive 
@@ -215,7 +219,7 @@ String datef(uint32_t unixtime, const char* format){
     const char* in = format;
     char* f;
     while(*in){
-        if(char* f = strchr(formatChar, *in)){
+        if(const char* f = strchr(formatChar, *in)){
             int ndx = f - formatChar;
             int len = 0;
             while(*in == *(in+1+len++));

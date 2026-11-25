@@ -6,7 +6,6 @@
 #include <SHA256.h>
 #include <Ed25519.h>
 
-#define memcpy_P memcpy
 inline uint8_t publicKey[32];
 
 class MD5Builder {
