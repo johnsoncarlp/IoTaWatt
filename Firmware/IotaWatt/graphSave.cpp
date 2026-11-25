@@ -66,6 +66,11 @@ void handleGraphGetall(){
   String response = "[";
   while(graphFile){
     uint32_t fileSize = graphFile.size();
+    if(fileSize < 10){                          // too short to hold "start" (and fileSize-1/-9 would wrap)
+      graphFile.close();
+      graphFile = directory.openNextFile();
+      continue;
+    }
     char* bufr = new char[fileSize];
     graphFile.read((uint8_t*)bufr, fileSize);
     bufr[fileSize-1] = 0;
