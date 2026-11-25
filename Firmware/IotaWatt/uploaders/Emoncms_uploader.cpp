@@ -155,9 +155,9 @@ uint32_t Emoncms_uploader::handle_write_s(){
                 while(index++ < String(script->name()).toInt()) reqData.write(",null");
                 double value1 = script->run(oldRecord, newRecord);
                 if(value1 == value1){
-                    if(script->precision()){
-                        char valstr[20];
-                        int end = sprintf(valstr,",%.*f", script->precision(), value1);
+                    char valstr[40];
+                    int end = script->precision() ? snprintf(valstr, sizeof(valstr), ",%.*f", script->precision(), value1) : 0;
+                    if(end > 0 && end < (int)sizeof(valstr)){
                         while(valstr[--end] == '0'){
                             valstr[end] = 0;
                         }
