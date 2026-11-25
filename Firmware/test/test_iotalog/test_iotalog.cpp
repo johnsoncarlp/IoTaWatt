@@ -257,6 +257,19 @@ static void test_setDays_clamps(void){
   IotaLog c(256, 5, 0, 0);     TEST_ASSERT_EQUAL_UINT32(0, c.setDays(0));        // 1 hour minimum, reported as 0 days
 }
 
+// B58: reopening a log (end() then begin()) must not leak the previous path. Counted with ASan's
+// allocator statistics: the live heap is the same after 100 reopen cycles as after the first.
+extern "C" size_t __sanitizer_get_current_allocated_bytes();   // ASan runtime
+static void test_reopen_does_not_leak_path(void){
+  IotaLog log(256, 5, 365, 24);
+  log.begin("/iotawatt/reopen.log"); log.end();
+  log.begin("/iotawatt/reopen.log"); log.end();                 // warm up (SD stand-in, String buffers)
+  size_t before = __sanitizer_get_current_allocated_bytes();
+  for(int i = 0; i < 100; i++){ log.begin("/iotawatt/reopen.log"); log.end(); }
+  size_t after = __sanitizer_get_current_allocated_bytes();
+  TEST_ASSERT_TRUE_MESSAGE(after <= before + 64, "heap grew over 100 reopen cycles");
+}
+
 int main(int, char**){
   UNITY_BEGIN();
   RUN_TEST(test_new_log_is_empty);
@@ -271,5 +284,6 @@ int main(int, char**){
   RUN_TEST(test_fuzz_random_workload);
   RUN_TEST(test_huge_wrapped_log_over_2GB);
   RUN_TEST(test_setDays_clamps);
+  RUN_TEST(test_reopen_does_not_leak_path);
   return UNITY_END();
 }
