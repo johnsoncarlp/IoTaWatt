@@ -182,6 +182,28 @@ static void test_out_of_range_values(void){
   TEST_ASSERT_TRUE(vlog); TEST_ASSERT_TRUE(alog);
 }
 
+// "ntp" device setting: trimmed text, blank/missing/wrong type = automatic (nullptr), cleared on reload.
+static void test_ntp_setting(void){
+  struct { const char* device; const char* expect; } cases[] = {
+    {"{\"ntp\":\"ntp.lan\"}", "ntp.lan"},
+    {"{\"ntp\":\"  ntp1.lan, 10.0.0.1  \"}", "ntp1.lan, 10.0.0.1"},
+    {"{\"ntp\":\"\"}", nullptr}, {"{\"ntp\":\"   \"}", nullptr}, {"{}", nullptr},
+    {"{\"ntp\":null}", nullptr}, {"{\"ntp\":[\"a\"]}", nullptr}, {"{\"ntp\":{}}", nullptr},
+    {"{\"ntp\":12345}", "12345"},                                      // number: its text (jStr), harmless
+  };
+  for(auto& c : cases){
+    setUp();
+    putFile("/config.txt", (std::string("{\"device\":") + c.device + "}").c_str());
+    setConfig("config.txt");
+    if(c.expect) TEST_ASSERT_EQUAL_STRING_MESSAGE(c.expect, ntpServers, c.device);
+    else TEST_ASSERT_NULL_MESSAGE(ntpServers, c.device);
+  }
+  setUp();                                                             // removing the setting clears it
+  putFile("/config.txt", "{\"device\":{\"ntp\":\"ntp.lan\"}}"); setConfig("config.txt");
+  putFile("/config.txt", "{\"device\":{\"name\":\"house\"}}"); setConfig("config.txt");
+  TEST_ASSERT_NULL(ntpServers);
+}
+
 static void test_minimal_and_wrong_types(void){
   const char* cases[] = {
     "{}",
@@ -271,6 +293,7 @@ int main(int, char**){
   RUN_TEST(test_comments_accepted);
   RUN_TEST(test_unquoted_value_is_rejected_and_kept);
   RUN_TEST(test_out_of_range_values);
+  RUN_TEST(test_ntp_setting);
   RUN_TEST(test_minimal_and_wrong_types);
   RUN_TEST(test_tables_array_longer_than_100_chars);
   RUN_TEST(test_reload_does_not_leak);
