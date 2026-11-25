@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <map>
+#include <strings.h>
 #include <set>
 #include <memory>
 #include <vector>
@@ -177,7 +178,16 @@ class SDClass {
   void reset() { _files.clear(); _dirs.clear(); failCreate = false; }
   bool failCreate = false;
  private:
-  static std::string norm(const char* p) { std::string s = p ? p : ""; return (s.empty() || s[0] != '/') ? "/" + s : s; }
+  // FAT matches names case-insensitively (the device's SD card holds e.g. INDEX.HTM): resolve to an
+  // existing entry's stored name when one matches ignoring case, else keep the name as given.
+  std::string norm(const char* p) const {
+    std::string s = p ? p : ""; if (s.empty() || s[0] != '/') s = "/" + s;
+    auto same = [&](const std::string& k) { return k.size() == s.size() && strcasecmp(k.c_str(), s.c_str()) == 0; };
+    if (_files.count(s) || _dirs.count(s)) return s;
+    for (auto& f : _files) if (same(f.first)) return f.first;
+    for (auto& d : _dirs) if (same(d)) return d;
+    return s;
+  }
   std::map<std::string, std::shared_ptr<HostFileData>> _files;
   std::set<std::string> _dirs;
 };

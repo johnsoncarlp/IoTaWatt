@@ -16,6 +16,9 @@
 #include "webServer.cpp"
 #include "graphSave.cpp"
 #include "webui.cpp"
+#include <zlib.h>
+#include <fstream>
+#include <sstream>
 bool auth(authLevel) { return hostAuthResult; }          // auth.cpp isn't under test here
 
 static uint32_t T0;
@@ -244,6 +247,109 @@ static void test_query_streaming_and_timeout_abort(void){
   TEST_ASSERT_TRUE(logged);
 }
 
+// ---- embedded web UI (webui.cpp) ----
+static std::string gunzip(const uint8_t* d, size_t n){
+  z_stream z{}; inflateInit2(&z, 16 + MAX_WBITS);
+  z.next_in = (Bytef*)d; z.avail_in = n; std::string out; char buf[16384]; int rc;
+  do { z.next_out = (Bytef*)buf; z.avail_out = sizeof buf; rc = inflate(&z, Z_NO_FLUSH); out.append(buf, sizeof buf - z.avail_out); }
+  while(rc == Z_OK);
+  inflateEnd(&z); TEST_ASSERT_EQUAL_INT(Z_STREAM_END, rc); return out;
+}
+static std::string readRepoFile(const char* name){
+  std::ifstream f(std::string("../SD/") + name, std::ios::binary); std::stringstream s; s << f.rdbuf(); return s.str();
+}
+
+// Every embedded file decompresses to exactly the SD/ source it was built from.
+static void test_webui_embedded_matches_sources(void){
+  TEST_ASSERT_EQUAL_INT(7, WEBUI_COUNT);
+  for(int i = 0; i < WEBUI_COUNT; i++){
+    const webuiFile& f = webuiFiles[i];
+    std::string src = readRepoFile(f.name);
+    TEST_ASSERT_TRUE_MESSAGE(src.size() > 0, f.name);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(src.size(), f.len, f.name);
+    TEST_ASSERT_TRUE_MESSAGE(gunzip(f.gz, f.gzLen) == src, f.name);
+  }
+}
+
+static void test_webui_find(void){
+  TEST_ASSERT_NOT_NULL(webuiFind("/index.htm"));
+  TEST_ASSERT_NOT_NULL(webuiFind("/INDEX.HTM"));                       // FAT names are case-insensitive
+  TEST_ASSERT_NOT_NULL(webuiFind("graph2.js"));
+  TEST_ASSERT_EQUAL_STRING("text/css", webuiFind("/CnfStyle.css")->type);
+  const char* not_embedded[] = {"/config.txt", "/tables.txt", "/favicon.ico", "/", "", "/index.htm/", "/index.html",
+                                "/iotawatt/index.htm", "/index.htm.src", "/index", nullptr};
+  for(int i = 0; not_embedded[i]; i++) TEST_ASSERT_NULL_MESSAGE(webuiFind(not_embedded[i]), not_embedded[i]);
+  TEST_ASSERT_NULL(webuiFind(nullptr));
+}
+
+static const HostResponse& getPath(const char* uri, std::initializer_list<std::pair<const char*, std::string>> a = {}){
+  request(a); server._uri = uri; TEST_ASSERT_TRUE(loadFromSdCard(String(uri)));
+  TEST_ASSERT_FALSE(server.responses.empty()); return server.responses.back();
+}
+
+// Default: the embedded copy is served (gzip), whether or not the SD card has one.
+static void test_webui_served_embedded(void){
+  SD.reset(); webuiFromSD = false;
+  const HostResponse& r = getPath("/");
+  TEST_ASSERT_EQUAL_INT(200, r.code); TEST_ASSERT_EQUAL_STRING("text/html", r.type.c_str());
+  TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
+  TEST_ASSERT_TRUE(gunzip((const uint8_t*)r.body.data(), r.body.size()) == readRepoFile("index.htm"));
+  auto f = SD.create("/graph.js"); f->writeAt(0, (const uint8_t*)"stale", 5); f->size = 5;
+  const HostResponse& g = getPath("/graph.js");
+  TEST_ASSERT_EQUAL_STRING("application/javascript", g.type.c_str());
+  TEST_ASSERT_TRUE(gunzip((const uint8_t*)g.body.data(), g.body.size()) == readRepoFile("graph.js"));
+  TEST_ASSERT_TRUE(getPath("/edit").body.size() > 0);                  // /edit -> edit.htm, embedded
+  TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
+}
+
+// Override on: the SD copy wins when present; embedded is the fallback and ?ui=embedded the rescue.
+static void test_webui_sd_override(void){
+  SD.reset(); webuiFromSD = true;
+  auto f = SD.create("/index.htm"); f->writeAt(0, (const uint8_t*)"<html>custom</html>", 19); f->size = 19;
+  getPath("/");
+  TEST_ASSERT_EQUAL_STRING("<html>custom</html>", server._client.written.c_str());   // streamed from SD
+  TEST_ASSERT_EQUAL_INT(0, server.sentHeaders.count("Content-Encoding"));
+  const HostResponse& r = getPath("/", {{"ui", "embedded"}});
+  TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
+  TEST_ASSERT_TRUE(gunzip((const uint8_t*)r.body.data(), r.body.size()) == readRepoFile("index.htm"));
+  const HostResponse& c = getPath("/cnfstyle.css");                    // not on SD: embedded fallback
+  TEST_ASSERT_TRUE(gunzip((const uint8_t*)c.body.data(), c.body.size()) == readRepoFile("cnfstyle.css"));
+  webuiFromSD = false;
+}
+
+// Non-UI files are never answered from the firmware.
+static void test_webui_leaves_other_files_alone(void){
+  SD.reset(); webuiFromSD = false;
+  auto f = SD.create("/tables.txt"); f->writeAt(0, (const uint8_t*)"{}", 2); f->size = 2;
+  getPath("/tables.txt");
+  TEST_ASSERT_EQUAL_STRING("{}", server._client.written.c_str());
+  request({}); server._uri = "/favicon.ico";
+  TEST_ASSERT_FALSE(loadFromSdCard(String("/favicon.ico")));          // not on SD, not embedded: 404 path
+}
+
+// Boot cleanup: SD root copies move to /iotawatt/webui-old; existing backups are kept (suffix);
+// other files and same-named directories are untouched.
+static void test_webui_clean_sd(void){
+  SD.reset(); hostLog.clear();
+  auto put = [](const char* p, const char* s){ auto f = SD.create(p); f->writeAt(0, (const uint8_t*)s, strlen(s)); f->size = strlen(s); };
+  put("/INDEX.HTM", "old index"); put("/graph.js", "old graph"); put("/config.txt", "{}"); put("/favicon.ico", "icon");
+  SD.mkdir("/edit.htm");                                               // a directory with a UI name: left alone
+  TEST_ASSERT_EQUAL_INT(2, webuiCleanSD());
+  TEST_ASSERT_FALSE(SD.exists("/INDEX.HTM")); TEST_ASSERT_FALSE(SD.exists("/graph.js"));
+  TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/index.htm")); TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/graph.js"));
+  TEST_ASSERT_TRUE(SD.exists("/config.txt")); TEST_ASSERT_TRUE(SD.exists("/favicon.ico"));
+  TEST_ASSERT_EQUAL_INT(0, webuiCleanSD());                            // idempotent
+  put("/index.htm", "custom index");                                   // e.g. uploaded later
+  TEST_ASSERT_EQUAL_INT(1, webuiCleanSD());
+  TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/index.htm.1"));     // first backup kept
+  File b = SD.open("/iotawatt/webui-old/index.htm"); char buf[16] = {0}; b.read((uint8_t*)buf, 9);
+  TEST_ASSERT_EQUAL_STRING("old index", buf);
+  for(int i = 0; i < 12; i++){ put("/index.htm", "again"); webuiCleanSD(); }   // backups full: stays, logged
+  TEST_ASSERT_TRUE(SD.exists("/index.htm"));
+  bool logged = false; for(auto& l : hostLog) logged |= l.find("could not move /index.htm") != std::string::npos;
+  TEST_ASSERT_TRUE(logged);
+}
+
 int main(int, char**){
   setenv("TZ", "UTC", 1); tzset();
   struct tm t{}; t.tm_year = 2026 - 1900; t.tm_mon = 10; t.tm_mday = 23; T0 = (uint32_t)timegm(&t);
@@ -272,5 +378,11 @@ int main(int, char**){
   RUN_TEST(test_graph_lists_survive_bad_files);
   RUN_TEST(test_directory_listing);
   RUN_TEST(test_query_streaming_and_timeout_abort);
+  RUN_TEST(test_webui_embedded_matches_sources);
+  RUN_TEST(test_webui_find);
+  RUN_TEST(test_webui_served_embedded);
+  RUN_TEST(test_webui_sd_override);
+  RUN_TEST(test_webui_leaves_other_files_alone);
+  RUN_TEST(test_webui_clean_sd);
   return UNITY_END();
 }

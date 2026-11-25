@@ -220,6 +220,21 @@ static void test_ntpinterval_setting(void){
   }
 }
 
+// "sdwebui" device setting: true/"true"/1 turns the SD override on; anything else (or missing) is off.
+static void test_sdwebui_setting(void){
+  struct { const char* device; bool expect; } cases[] = {
+    {"{\"sdwebui\":true}", true}, {"{\"sdwebui\":\"true\"}", true}, {"{\"sdwebui\":1}", true},
+    {"{\"sdwebui\":false}", false}, {"{\"sdwebui\":\"false\"}", false}, {"{\"sdwebui\":0}", false},
+    {"{}", false}, {"{\"sdwebui\":null}", false}, {"{\"sdwebui\":[1]}", false}, {"{\"sdwebui\":\"yes\"}", false},
+  };
+  for(auto& c : cases){
+    setUp(); webuiFromSD = !c.expect;                                  // must be set either way
+    putFile("/config.txt", (std::string("{\"device\":") + c.device + "}").c_str());
+    setConfig("config.txt");
+    TEST_ASSERT_EQUAL_MESSAGE(c.expect, webuiFromSD, c.device);
+  }
+}
+
 static void test_minimal_and_wrong_types(void){
   const char* cases[] = {
     "{}",
@@ -311,6 +326,7 @@ int main(int, char**){
   RUN_TEST(test_out_of_range_values);
   RUN_TEST(test_ntp_setting);
   RUN_TEST(test_ntpinterval_setting);
+  RUN_TEST(test_sdwebui_setting);
   RUN_TEST(test_minimal_and_wrong_types);
   RUN_TEST(test_tables_array_longer_than_100_chars);
   RUN_TEST(test_reload_does_not_leak);
