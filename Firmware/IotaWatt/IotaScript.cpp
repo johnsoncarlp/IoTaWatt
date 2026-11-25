@@ -72,6 +72,13 @@ Script::Script(JsonObject JsonScript)
           log("Script: invalid Script in output %s.", _name);
         }
       }
+      if( ! _name){                             // never null: callers strcmp() names
+        _name = new char[1];
+        _name[0] = 0;
+      }
+      if( ! _tokens){                           // no "script" (or not an object): evaluates to 0
+        encodeScript("");
+      }
       print();
     }
 
