@@ -204,6 +204,22 @@ static void test_ntp_setting(void){
   TEST_ASSERT_NULL(ntpServers);
 }
 
+// "ntpinterval" device setting (upstream #368): seconds, 300..86400, default 3600; junk = default.
+static void test_ntpinterval_setting(void){
+  struct { const char* device; uint32_t expect; } cases[] = {
+    {"{}", 3600}, {"{\"ntpinterval\":900}", 900}, {"{\"ntpinterval\":\"600\"}", 600},
+    {"{\"ntpinterval\":10}", 300}, {"{\"ntpinterval\":-5}", 300}, {"{\"ntpinterval\":999999}", 86400},
+    {"{\"ntpinterval\":0}", 3600}, {"{\"ntpinterval\":\"x\"}", 3600}, {"{\"ntpinterval\":null}", 3600},
+    {"{\"ntpinterval\":[1]}", 3600}, {"{\"ntpinterval\":1e9}", 86400},
+  };
+  for(auto& c : cases){
+    setUp(); timeSynchInterval = 1;                                    // must be set either way
+    putFile("/config.txt", (std::string("{\"device\":") + c.device + "}").c_str());
+    setConfig("config.txt");
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(c.expect, timeSynchInterval, c.device);
+  }
+}
+
 static void test_minimal_and_wrong_types(void){
   const char* cases[] = {
     "{}",
@@ -294,6 +310,7 @@ int main(int, char**){
   RUN_TEST(test_unquoted_value_is_rejected_and_kept);
   RUN_TEST(test_out_of_range_values);
   RUN_TEST(test_ntp_setting);
+  RUN_TEST(test_ntpinterval_setting);
   RUN_TEST(test_minimal_and_wrong_types);
   RUN_TEST(test_tables_array_longer_than_100_chars);
   RUN_TEST(test_reload_does_not_leak);
