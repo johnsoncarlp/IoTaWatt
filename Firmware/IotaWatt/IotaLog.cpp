@@ -2,7 +2,12 @@
   IotaLog - Library for IoTaLog energy monitor
   Created by Bob Lemaire
 */
+#ifdef IOTAWATT_HOST_TEST
+#include "host_iotawatt.h"           // host unit tests (Firmware/test/shim)
+#include "IotaLog.h"
+#else
 #include "IotaWatt.h"
+#endif
 
 struct {
   uint32_t UNIXtime;

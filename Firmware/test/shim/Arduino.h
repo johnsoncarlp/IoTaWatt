@@ -8,4 +8,5 @@
 #include <cstring>
 #include <cmath>
 typedef uint8_t byte;
+typedef bool boolean;
 #endif
