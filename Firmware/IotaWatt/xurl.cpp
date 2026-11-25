@@ -140,6 +140,7 @@ void    xurl::domain(const char *_domain_){
 
 void    xurl::port(const char *_port_){
         delete[] _port;
+        _port = nullptr;
         if(_port_){
             _port = new char[strlen(_port_)+1];
             strcpy(_port, _port_);
