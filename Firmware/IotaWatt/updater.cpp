@@ -276,7 +276,9 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
           ESP.restart();
         }
       }
+      lastVersionCheck = UTCtime();                 // back off like the other failure paths
       state = checkAutoUpdate;
+      return 1;                                     // was missing: fell through into getTable
     }
 
     case getTable: {
@@ -324,7 +326,12 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
         if(SD.exists(F(IOTA_NEW_TABLE_PATH))) SD.remove(F(IOTA_NEW_TABLE_PATH));
         File tableFile = SD.open(F(IOTA_NEW_TABLE_PATH), FILE_WRITE);
         if(!tableFile){
-          return false;
+          log("Updater: Cannot create %s.", IOTA_NEW_TABLE_PATH);
+          delete request;                           // returning 0 (false) ended the updater service for good
+          request = nullptr;
+          lastVersionCheck = UTCtime();
+          state = checkAutoUpdate;
+          return UTCtime() + 60;
         }
         uint8_t buf[512];
         while(request->available()){
