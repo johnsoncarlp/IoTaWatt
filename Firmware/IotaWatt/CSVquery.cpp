@@ -479,6 +479,11 @@ void CSVquery::buildLine(){
     while(col){
         trace(T_CSVquery,61);
 
+        if(elapsedHours == 0 && _missingSkip && col->source != 'T'){
+            col = col->next;                    // skip this value and its separator (the old continue never advanced: endless loop)
+            continue;
+        }
+
         if( ! first){
             if(_format == formatJson){
                 _buffer.print(',');
@@ -488,11 +493,7 @@ void CSVquery::buildLine(){
         } 
         first = false;
 
-        if(elapsedHours == 0 && _missingSkip){
-            continue;
-        }
-
-        else if(col->source == 'T'){
+        if(col->source == 'T'){
             time_t Time = col->timeLocal ? UTC2Local(_oldRec->UNIXtime) : _oldRec->UNIXtime;
             if(col->timeFormat == unix){
                 _buffer.print(Time);
