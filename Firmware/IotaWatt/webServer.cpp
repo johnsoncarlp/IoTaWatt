@@ -683,6 +683,10 @@ void handleVcal(){
   JsonDocument jsonDoc;
   JsonObject root = jsonDoc.to<JsonObject>();
   int channel = server.arg(F("channel")).toInt();
+  if(channel < 0 || channel >= maxInputs){
+    server.send(400, txtJson_P, F("Invalid channel"));
+    return;
+  }
   float Vrms = sampleVoltage(channel, server.arg("cal").toFloat());
   root["vrms"] = Vrms;
   String response = "";
@@ -710,6 +714,10 @@ void handleCommand(){
     if(server.hasArg(F("shift"))){
       shift = server.arg(F("shift")).toInt();
     }
+    if(chan >= maxInputs || refChan < 0 || refChan >= maxInputs){
+      server.send(400, txtPlain_P, F("Invalid channel"));
+      return;
+    }
     char response[100];
     sprintf_P(response, PSTR("Phase Shift chan %d ref %d, %.2f"), chan, refChan, samplePhase(refChan, chan, shift));
     server.send(200, txtPlain_P, response);
@@ -718,6 +726,10 @@ void handleCommand(){
   if(server.hasArg(F("sample"))){
     trace(T_WEB,5); 
     uint16_t chan = server.arg(F("sample")).toInt();
+    if(chan >= maxInputs){
+      server.send(400, txtPlain_P, F("Invalid channel"));
+      return;
+    }
     int rtc = sampleCycle(inputChannel[inputChannel[chan]->_vchannel], inputChannel[chan]);
     if(rtc){
       char response[100];

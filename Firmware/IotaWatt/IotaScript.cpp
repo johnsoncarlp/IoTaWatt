@@ -186,6 +186,10 @@ bool    Script::encodeScript(const char* script){
       char* endptr;
       int n = strtol(&script[j+1], &endptr, 10);
       trace(T_Script, 10, n);
+      if(n < 0 || n >= maxInputs){            // 5-bit field; also indexes inputChannel[] and accum1[15]
+        _tokens[0] = opEq;
+        return false;
+      }
       j = endptr - script;
       _tokens[i++] = tokenInput + n;
     } 

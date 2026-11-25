@@ -471,6 +471,14 @@ bool configInputs(const char* JsonStr){
       if(inputChannel[i]->_double){
         inputChannel[i]->_vmult *= 2.0;
       }
+      {
+        int vref = (type == "CT") ? jInt<int>(input[F("vchan")]) : ( ! input["vref"].isNull()) ? jInt<int>(input["vref"]) : inputChannel[i]->_vchannel;
+        if(type == "VT") vref = i;
+        if(vref < 0 || vref >= maxInputs){    // _vchannel is a byte: check before it truncates
+          log("Config input %d: voltage reference %d out of range, using 0.", i, vref);
+          inputChannel[i]->_vchannel = 0;     // used as an index on every sample
+        }
+      }
       
     }
     else {
