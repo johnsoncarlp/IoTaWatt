@@ -28,6 +28,7 @@ uint8_t     unitsPrecision[] = {
                     /*Volts*/ 2, 
                     /*Amps*/  3, 
                     /*VA*/    2, 
+                    /*VAh*/   4, 
                     /*Hz*/    2, 
                     /*Wh*/    4, 
                     /*kWh*/   7, 
