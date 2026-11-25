@@ -323,7 +323,12 @@ bool configDevice(const char* JsonStr){
  
   if( ! device[F("chanaddr")].isNull()){
     for(int i=0; i<MIN(maxInputs,device[F("chanaddr")].size()); i++){
-      inputChannel[i]->_addr = jInt<unsigned int>(device[F("chanaddr")][i]);
+      unsigned int addr = jInt<unsigned int>(device[F("chanaddr")][i]);
+      if(addr > 15){                          // 2 ADCs x 8 ports; addr >> 3 indexes ADC_selectPin[2]
+        log("Config chanaddr[%d] = %u out of range, keeping %d.", i, addr, inputChannel[i]->_addr);
+        continue;
+      }
+      inputChannel[i]->_addr = addr;
     }
   }
   
