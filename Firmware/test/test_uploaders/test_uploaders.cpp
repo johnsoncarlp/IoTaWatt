@@ -78,7 +78,7 @@ static void test_influxdb_v1_query_and_write(void){
   const HostHttpRequest& q = hostHttpLog[0];
   TEST_ASSERT_EQUAL_STRING("POST", q.method.c_str());
   TEST_ASSERT_EQUAL_STRING("http://influx.lan:8086/query", q.url.c_str());
-  TEST_ASSERT_EQUAL_STRING("db=iotawatt&epoch=s&q= SELECT LAST(\"value\") FROM Main  WHERE device='iotawatt'", q.body.c_str());
+  TEST_ASSERT_EQUAL_STRING("db=iotawatt&epoch=s&q=SELECT+LAST%28%22value%22%29+FROM+%22Main%22+WHERE+%22device%22%3D%27iotawatt%27", q.body.c_str());
   TEST_ASSERT_EQUAL_STRING("Basic dTpw", q.headers.at("Authorization").c_str());          // base64("u:p")
   const HostHttpRequest& w = hostHttpLog[2];
   TEST_ASSERT_EQUAL_STRING("http://influx.lan:8086/write?precision=s&db=iotawatt", w.url.c_str());
@@ -163,7 +163,7 @@ static void test_influxdb_v2_query_and_write(void){
   TEST_ASSERT_EQUAL_STRING("http://influx2.lan:8086/api/v2/query?orgID=0123456789abcdef", q.url.c_str());
   TEST_ASSERT_EQUAL_STRING(("Token " + token).c_str(), q.headers.at("Authorization").c_str());
   TEST_ASSERT_TRUE(q.body.find("from(bucket:\"energy\")") != std::string::npos || q.body.find("bucket: \"energy\"") != std::string::npos || q.body.find("energy") != std::string::npos);
-  TEST_ASSERT_TRUE(q.body.find("r._measurement == \"Main\" and r.device == \"IotaWatt\"") != std::string::npos);
+  TEST_ASSERT_TRUE(q.body.find("r._measurement == \"Main\" and r[\"device\"] == \"IotaWatt\"") != std::string::npos);
   const HostHttpRequest& w = hostHttpLog[1];
   TEST_ASSERT_EQUAL_STRING("http://influx2.lan:8086/api/v2/write?precision=s&orgID=0123456789abcdef&bucket=energy", w.url.c_str());
   auto L = lines(w.body);

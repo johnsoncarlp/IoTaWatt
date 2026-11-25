@@ -1,5 +1,6 @@
 #include "influxDB_uploader.h"
 #include "splitstr.h"
+#include "influxEscape.h"
 
 Uploader *influxDB_v1 = nullptr;
 
@@ -15,18 +16,29 @@ Uploader *influxDB_v1 = nullptr;
         _script = _outputs->first();
     }
     reqData.flush();
-    reqData.printf_P(PSTR("db=%s&epoch=s"), _database); 
+    reqData.print(F("db="));
+    reqData.print(formEncode(_database));
+    reqData.print(F("&epoch=s"));
     if(_retention){
-        reqData.printf_P(PSTR("&rp=%s"), _retention);
+        reqData.print(F("&rp="));
+        reqData.print(formEncode(_retention));
     }
     trace(T_influx1,20);
-    reqData.printf_P(PSTR("&q= SELECT LAST(\"%s\") FROM %s "),varStr(_fieldKey, _script).c_str(),varStr(_measurement, _script).c_str());
+            // Quoted names and values (B50); the whole query is one form-encoded value.
+    String query(F("SELECT LAST("));
+    query += iqlIdent(varStr(_fieldKey, _script).c_str());
+    query += F(") FROM ");
+    query += iqlIdent(varStr(_measurement, _script).c_str());
     influxTag *tag = _tagSet;
-    trace(T_influx1,20);
     while(tag){
-        reqData.printf_P(PSTR(" %s %s=\'%s\'"), tag == _tagSet ? "WHERE" : "AND", tag->key, varStr(tag->value, _script).c_str());
+        query += tag == _tagSet ? F(" WHERE ") : F(" AND ");
+        query += iqlIdent(tag->key);
+        query += '=';
+        query += iqlString(varStr(tag->value, _script).c_str());
         tag = tag->next;
     }
+    reqData.print(F("&q="));
+    reqData.print(formEncode(query.c_str()));
     
         // Send the request
 
@@ -196,22 +208,22 @@ uint32_t influxDB_uploader::handle_write_s(){
                 trace(T_influx1,64);   
                 thisMeasurement = varStr(_measurement, script);
                 if(_staticKeySet && thisMeasurement.equals(lastMeasurement)){
-                    reqData.printf_P(PSTR(",%s=%.*f"), varStr(_fieldKey, script).c_str(), script->precision(), value);
+                    reqData.printf_P(PSTR(",%s=%.*f"), lpKey(varStr(_fieldKey, script).c_str()).c_str(), script->precision(), value);
                 } else {
                     if(lastMeasurement.length()){
                         reqData.printf(" %d\n", oldRecord->UNIXtime);
                     }
-                    reqData.write(thisMeasurement);
+                    reqData.write(lpMeasurement(thisMeasurement.c_str()));
                     if(_tagSet){
                         trace(T_influx1,64);
                         influxTag* tag = _tagSet;
                         while(tag){
-                            reqData.printf_P(PSTR(",%s=%s"), tag->key, varStr(tag->value, script).c_str());
+                            reqData.printf_P(PSTR(",%s=%s"), lpKey(tag->key).c_str(), lpKey(varStr(tag->value, script).c_str()).c_str());
                             tag = tag->next;
                         }
                     }
                     trace(T_influx1,65);
-                    reqData.printf_P(PSTR(" %s=%.*f"), varStr(_fieldKey, script).c_str(), script->precision(), value);
+                    reqData.printf_P(PSTR(" %s=%.*f"), lpKey(varStr(_fieldKey, script).c_str()).c_str(), script->precision(), value);
                 }
             }
             lastMeasurement = thisMeasurement;
@@ -230,7 +242,7 @@ uint32_t influxDB_uploader::handle_write_s(){
             Script *script = _outputs->first();
             influxTag* tag = _tagSet;
             while(tag){
-                reqData.printf_P(PSTR(",%s=%s"), tag->key, varStr(tag->value, script).c_str());
+                reqData.printf_P(PSTR(",%s=%s"), lpKey(tag->key).c_str(), lpKey(varStr(tag->value, script).c_str()).c_str());
                 tag = tag->next;
             }
         }
