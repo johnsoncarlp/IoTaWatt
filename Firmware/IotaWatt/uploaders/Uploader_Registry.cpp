@@ -50,7 +50,7 @@ void set_buffer_limit(){
             uploaderInstancesCount++;
         }
     }
-    uploaderBufferLimit = MIN(uploaderBufferTotal / uploaderInstancesCount, 4000);
+    uploaderBufferLimit = MIN(uploaderBufferTotal / MAX(uploaderInstancesCount, 1), 4000);
 }
 
     // new_uploader(ID) - called to instantiate an uploader.
@@ -104,8 +104,7 @@ bool delete_uploader(const char *ID){
             if(uploaderInstances[i]){
                 uploaderInstances[i]->end();
                 uploaderInstances[i] = nullptr;
-                uploaderInstancesCount--;
-                uploaderBufferLimit = MIN(uploaderBufferTotal / uploaderInstancesCount + (PVoutput ? 1 : 0), 4000);
+                set_buffer_limit();
                 return true;
             }
             return false;
