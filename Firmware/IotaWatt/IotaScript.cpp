@@ -236,13 +236,12 @@ bool    Script::encodeScript(const char* script){
         j++;
       }
       int len = strcspn(&script[j + 1], opChars);
-      char name[32];
-      memcpy(name, &script[j+1], len);
-      name[len] = 0;
+      const char* name = &script[j+1];          // compared in place: was memcpy into char[32], no length check
       int index = 0;
       Script* integration = integrations->first();
       while(integration){
-        if(strcmp(name, integration->name()) == 0){
+        const char* iname = integration->name();
+        if(iname && (int)strlen(iname) == len && strncmp(name, iname, len) == 0){
           break;
         }
         integration = integration->next();
@@ -255,7 +254,7 @@ bool    Script::encodeScript(const char* script){
       }
       else {
         trace(T_Script, 29);
-        log("Script: integration %s not defined in script %s.", name, this->_name);
+        log("Script: integration %.*s not defined in script %s.", len, name, this->_name);
         _tokens[i++] = tokenConstant;
       }
       j += len + 1;
