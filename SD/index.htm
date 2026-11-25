@@ -3027,6 +3027,11 @@
             }
         }
 
+        // Pages that are separate apps or files open in their own tab, keeping this one as it was.
+        function openTab(url) {
+            window.open(url, "_blank", "noopener");
+        }
+
         function formatRunTime(time) {
             var days = Math.floor(time / 86400);
             time -= days * 86400;
@@ -3192,23 +3197,23 @@
         }
 
         function loadGraph() {
-            var myWindow = window.open(graphURL, "_self");
+            openTab(graphURL);
             resetDisplay();
         }
 
         function loadGraph2() {
-            var myWindow = window.open(graph2URL, "_self");
+            openTab(graph2URL);
             resetDisplay();
         }
 
         function loadEdit() {
             resetDisplay();
-            var myWindow = window.open(editURL, "_self");
+            openTab(editURL);
         }
 
         function showMsgs() {
             resetDisplay();
-            var myWindow = window.open(msgsFileURL, "_self");
+            openTab(msgsFileURL);
         }
 
         function toggleDisplay(id) {
