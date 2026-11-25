@@ -66,6 +66,9 @@ class PVresponse {
     
  };
 
+class PVoutput_uploader;
+extern PVoutput_uploader *PVoutput;
+
 class PVoutput_uploader {
 
 public:
@@ -102,6 +105,7 @@ public:
         };
 
     ~PVoutput_uploader(){
+        if(PVoutput == this) PVoutput = nullptr;       // end() deletes this instance: don't leave the global dangling
         delete[] _apiKey;
         delete[] _systemID;
         delete[] _statusMessage;
