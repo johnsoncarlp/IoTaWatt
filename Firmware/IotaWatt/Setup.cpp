@@ -180,9 +180,6 @@ declare_uploaders();
 
 #ifdef IOTAWATT_EMBED_WEBUI
   log("webui: %s web UI %s", webuiFromSD ? "SD card (embedded as fallback)," : "embedded", WEBUI_ID);
-  if( ! webuiFromSD){
-    webuiCleanSD();                     // move old SD copies aside so nothing stale remains
-  }
 #endif 
 
 //************************************* Load passwords *******************************************
@@ -237,7 +234,10 @@ declare_uploaders();
 
   server.on(F("/edit"), HTTP_POST, returnOK, handleFileUpload);
   server.onNotFound(handleRequest);
-  const char * headerkeys[] = {"X-configSHA256"};
+  const char * headerkeys[] = {
+    "X-configSHA256",
+    "Accept-Encoding",               // embedded web UI: gzip or not (webServer.cpp)
+  };
   size_t headerkeyssize = sizeof(headerkeys)/sizeof(char*);
   server.collectHeaders(headerkeys, headerkeyssize );
   server.begin();

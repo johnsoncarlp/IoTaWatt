@@ -75,8 +75,6 @@
             <span class="dropContent">
               <button class="mainMenuButton" onclick="mainMenuButton(this,loadGraph2)"
                   title="Enhanced graph utility">Graph+</button>
-              <button class="mainMenuButton" onclick="mainMenuButton(this,loadGraph)"
-                  title="Original graph utility">Original Graph</button>
               
             </span>
                         </span>
@@ -534,7 +532,6 @@
         var burdenFileURL = "/esp_spiffs/config/device/burden.txt";
         var configTablesURL = "/tables.txt";
         var editURL = "edit.htm";
-        var graphURL = "graph.htm";
         var graph2URL = "graph2.htm";
         var msgsFileURL = "/iotawatt/iotamsgs.txt?textpos=-10000";
         var currentBody = [];
@@ -3194,11 +3191,6 @@
             editing = false;
             while (currentBody.length > 0) currentBodyPop();
             hide("mainBody");
-        }
-
-        function loadGraph() {
-            openTab(graphURL);
-            resetDisplay();
         }
 
         function loadGraph2() {

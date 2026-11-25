@@ -175,9 +175,22 @@ bool loadFromSdCard(String path){
   if( ! authenticate(level)) return true;
 
 #ifdef IOTAWATT_EMBED_WEBUI
-  if(webuiUseEmbedded(path.c_str(), (bool)dataFile && ! dataFile.isDirectory(), server.arg(F("ui")) == "embedded")){
-    webuiServe(path.c_str(), dataType.c_str());
+  const char* movedTo = webuiRedirect(path.c_str(), (bool)dataFile && ! dataFile.isDirectory());
+  if(movedTo){
+    server.sendHeader(F("Location"), movedTo);
+    server.send(302, F("text/plain"), "");   // 302: not cached, so the SD override still works later
     return true;
+  }
+  {
+          // The embedded copy is gzipped. A client that doesn't accept gzip (curl without --compressed,
+          // scripts) gets the SD copy if there is one (B75); ?download=true is a download either way.
+    bool sdCopy = (bool)dataFile && ! dataFile.isDirectory();
+    bool gzipOK = server.header(F("Accept-Encoding")).indexOf(F("gzip")) >= 0;
+    if(webuiUseEmbedded(path.c_str(), sdCopy, server.arg(F("ui")) == "embedded") && (gzipOK || ! sdCopy)){
+      bool download = server.arg(F("download")) == "true";
+      webuiServe(path.c_str(), download ? "application/octet-stream" : dataType.c_str());
+      return true;
+    }
   }
 #endif
 

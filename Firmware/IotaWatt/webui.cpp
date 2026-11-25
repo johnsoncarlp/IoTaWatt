@@ -33,35 +33,26 @@ bool webuiServe(const char* path, const char* dataType){
   return true;
 }
 
-        // Move SD root copies of the embedded files to WEBUI_OLD_DIR. An existing backup is kept: the
-        // new one gets a numeric suffix (.1 to .9); if all are taken the file stays where it is (it's
-        // not served anyway).
+        // Pages no longer shipped, and where their requests go (graph.js has no replacement: only
+        // graph.htm used it).
 
-int webuiCleanSD(){
-  int moved = 0;
-  for(int i=0; i<WEBUI_COUNT; i++){
-    char name[24];
-    strncpy_P(name, webuiFiles[i].name, sizeof(name) - 1);
-    name[sizeof(name) - 1] = 0;
-    String path = String("/") + name;
-    if( ! SD.exists(path.c_str())) continue;
-    File f = SD.open(path.c_str());
-    bool isDir = f && f.isDirectory();
-    f.close();
-    if(isDir) continue;
-    if( ! SD.exists(WEBUI_OLD_DIR)) SD.mkdir(WEBUI_OLD_DIR);
-    String dest = String(F(WEBUI_OLD_DIR)) + "/" + name;
-    for(int n=1; SD.exists(dest.c_str()) && n<=10; n++){
-      dest = String(F(WEBUI_OLD_DIR)) + "/" + name + "." + String(n);
-    }
-    if(SD.exists(dest.c_str()) || ! SDFS.rename(path.c_str(), dest.c_str())){
-      log("webui: could not move %s aside (embedded copy is served)", path.c_str());
-      continue;
-    }
-    log("webui: moved old %s to %s (embedded web UI %s is served)", path.c_str(), dest.c_str(), WEBUI_ID);
-    moved++;
+static const char retiredGraph[] PROGMEM = "graph.htm";
+static const char retiredGraphJs[] PROGMEM = "graph.js";
+static const struct { const char* name; const char* to; } webuiRetired[] = {
+  {retiredGraph,   "/graph2.htm"},
+  {retiredGraphJs, nullptr},
+};
+#define WEBUI_RETIRED_COUNT (sizeof(webuiRetired) / sizeof(webuiRetired[0]))
+
+const char* webuiRedirect(const char* path, bool sdFileExists){
+  if( ! path) return nullptr;
+  if(*path == '/') path++;
+  if(webuiFromSD && sdFileExists) return nullptr;     // SD override: a copy kept on purpose is served
+  for(size_t i=0; i<WEBUI_RETIRED_COUNT; i++){
+    if(webuiRetired[i].to && strcasecmp_P(path, webuiRetired[i].name) == 0) return webuiRetired[i].to;
   }
-  return moved;
+  return nullptr;
 }
+
 
 #endif

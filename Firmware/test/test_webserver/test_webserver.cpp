@@ -261,7 +261,7 @@ static std::string readRepoFile(const char* name){
 
 // Every embedded file decompresses to exactly the SD/ source it was built from.
 static void test_webui_embedded_matches_sources(void){
-  TEST_ASSERT_EQUAL_INT(7, WEBUI_COUNT);
+  TEST_ASSERT_EQUAL_INT(5, WEBUI_COUNT);
   for(int i = 0; i < WEBUI_COUNT; i++){
     const webuiFile& f = webuiFiles[i];
     std::string src = readRepoFile(f.name);
@@ -277,13 +277,14 @@ static void test_webui_find(void){
   TEST_ASSERT_NOT_NULL(webuiFind("graph2.js"));
   TEST_ASSERT_EQUAL_STRING("text/css", webuiFind("/CnfStyle.css")->type);
   const char* not_embedded[] = {"/config.txt", "/tables.txt", "/favicon.ico", "/", "", "/index.htm/", "/index.html",
-                                "/iotawatt/index.htm", "/index.htm.src", "/index", nullptr};
+                                "/iotawatt/index.htm", "/index.htm.src", "/index", "/graph.htm", "/graph.js", nullptr};
   for(int i = 0; not_embedded[i]; i++) TEST_ASSERT_NULL_MESSAGE(webuiFind(not_embedded[i]), not_embedded[i]);
   TEST_ASSERT_NULL(webuiFind(nullptr));
 }
 
 static const HostResponse& getPath(const char* uri, std::initializer_list<std::pair<const char*, std::string>> a = {}){
-  request(a); server._uri = uri; TEST_ASSERT_TRUE(loadFromSdCard(String(uri)));
+  request(a); server._uri = uri; server.reqHeaders["Accept-Encoding"] = "gzip, deflate";   // as browsers send
+  TEST_ASSERT_TRUE(loadFromSdCard(String(uri)));
   TEST_ASSERT_FALSE(server.responses.empty()); return server.responses.back();
 }
 
@@ -294,12 +295,26 @@ static void test_webui_served_embedded(void){
   TEST_ASSERT_EQUAL_INT(200, r.code); TEST_ASSERT_EQUAL_STRING("text/html", r.type.c_str());
   TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
   TEST_ASSERT_TRUE(gunzip((const uint8_t*)r.body.data(), r.body.size()) == readRepoFile("index.htm"));
-  auto f = SD.create("/graph.js"); f->writeAt(0, (const uint8_t*)"stale", 5); f->size = 5;
-  const HostResponse& g = getPath("/graph.js");
+  auto f = SD.create("/graph2.js"); f->writeAt(0, (const uint8_t*)"stale", 5); f->size = 5;
+  const HostResponse& g = getPath("/graph2.js");
   TEST_ASSERT_EQUAL_STRING("application/javascript", g.type.c_str());
-  TEST_ASSERT_TRUE(gunzip((const uint8_t*)g.body.data(), g.body.size()) == readRepoFile("graph.js"));
+  TEST_ASSERT_TRUE(gunzip((const uint8_t*)g.body.data(), g.body.size()) == readRepoFile("graph2.js"));
   TEST_ASSERT_TRUE(getPath("/edit").body.size() > 0);                  // /edit -> edit.htm, embedded
   TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
+}
+
+// B75: a client that doesn't accept gzip gets the SD copy when there is one (else still the gzip);
+// ?download=true downloads the embedded copy.
+static void test_webui_without_gzip(void){
+  SD.reset(); webuiFromSD = false;
+  auto f = SD.create("/graph2.js"); f->writeAt(0, (const uint8_t*)"plain js", 8); f->size = 8;
+  request({}); server._uri = "/graph2.js"; TEST_ASSERT_TRUE(loadFromSdCard(String("/graph2.js")));
+  TEST_ASSERT_EQUAL_STRING("plain js", server._client.written.c_str());
+  TEST_ASSERT_EQUAL_INT(0, server.sentHeaders.count("Content-Encoding"));
+  request({}); server._uri = "/index.htm"; TEST_ASSERT_TRUE(loadFromSdCard(String("/index.htm")));   // no SD copy
+  TEST_ASSERT_EQUAL_STRING("gzip", server.sentHeaders["Content-Encoding"].c_str());
+  const HostResponse& d = getPath("/index.htm", {{"download", "true"}});
+  TEST_ASSERT_EQUAL_STRING("application/octet-stream", d.type.c_str());
 }
 
 // Override on: the SD copy wins when present; embedded is the fallback and ?ui=embedded the rescue.
@@ -327,27 +342,27 @@ static void test_webui_leaves_other_files_alone(void){
   TEST_ASSERT_FALSE(loadFromSdCard(String("/favicon.ico")));          // not on SD, not embedded: 404 path
 }
 
-// Boot cleanup: SD root copies move to /iotawatt/webui-old; existing backups are kept (suffix);
-// other files and same-named directories are untouched.
-static void test_webui_clean_sd(void){
-  SD.reset(); hostLog.clear();
-  auto put = [](const char* p, const char* s){ auto f = SD.create(p); f->writeAt(0, (const uint8_t*)s, strlen(s)); f->size = strlen(s); };
-  put("/INDEX.HTM", "old index"); put("/graph.js", "old graph"); put("/config.txt", "{}"); put("/favicon.ico", "icon");
-  SD.mkdir("/edit.htm");                                               // a directory with a UI name: left alone
-  TEST_ASSERT_EQUAL_INT(2, webuiCleanSD());
-  TEST_ASSERT_FALSE(SD.exists("/INDEX.HTM")); TEST_ASSERT_FALSE(SD.exists("/graph.js"));
-  TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/index.htm")); TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/graph.js"));
-  TEST_ASSERT_TRUE(SD.exists("/config.txt")); TEST_ASSERT_TRUE(SD.exists("/favicon.ico"));
-  TEST_ASSERT_EQUAL_INT(0, webuiCleanSD());                            // idempotent
-  put("/index.htm", "custom index");                                   // e.g. uploaded later
-  TEST_ASSERT_EQUAL_INT(1, webuiCleanSD());
-  TEST_ASSERT_TRUE(SD.exists("/iotawatt/webui-old/index.htm.1"));     // first backup kept
-  File b = SD.open("/iotawatt/webui-old/index.htm"); char buf[16] = {0}; b.read((uint8_t*)buf, 9);
-  TEST_ASSERT_EQUAL_STRING("old index", buf);
-  for(int i = 0; i < 12; i++){ put("/index.htm", "again"); webuiCleanSD(); }   // backups full: stays, logged
-  TEST_ASSERT_TRUE(SD.exists("/index.htm"));
-  bool logged = false; for(auto& l : hostLog) logged |= l.find("could not move /index.htm") != std::string::npos;
-  TEST_ASSERT_TRUE(logged);
+// The original Graph page is retired: links to it go to Graph+, unless the SD override is on and
+// the card still has a copy (kept on purpose). graph.js, used only by that page, is just gone.
+static void test_webui_retired_graph_redirects(void){
+  SD.reset(); webuiFromSD = false;
+  const HostResponse& r = getPath("/graph.htm");
+  TEST_ASSERT_EQUAL_INT(302, r.code);
+  TEST_ASSERT_EQUAL_STRING("/graph2.htm", server.sentHeaders["Location"].c_str());
+  getPath("/GRAPH.HTM");
+  TEST_ASSERT_EQUAL_INT(302, server.responses.back().code);
+  auto f = SD.create("/graph.htm"); f->writeAt(0, (const uint8_t*)"<html>old</html>", 16); f->size = 16;
+  TEST_ASSERT_EQUAL_INT(302, getPath("/graph.htm").code);             // default: even with a stale SD copy
+  webuiFromSD = true;
+  server.sentHeaders.clear();
+  getPath("/graph.htm");
+  TEST_ASSERT_EQUAL_STRING("<html>old</html>", server._client.written.c_str());   // override: SD copy served
+  TEST_ASSERT_EQUAL_INT(0, server.sentHeaders.count("Location"));
+  webuiFromSD = false;
+  request({}); server._uri = "/graph.js";
+  TEST_ASSERT_FALSE(loadFromSdCard(String("/graph.js")));              // not on SD, not embedded: 404 path
+  TEST_ASSERT_NULL(webuiRedirect(nullptr, false));
+  TEST_ASSERT_NULL(webuiRedirect("/graph2.htm", false));
 }
 
 int main(int, char**){
@@ -381,8 +396,9 @@ int main(int, char**){
   RUN_TEST(test_webui_embedded_matches_sources);
   RUN_TEST(test_webui_find);
   RUN_TEST(test_webui_served_embedded);
+  RUN_TEST(test_webui_without_gzip);
   RUN_TEST(test_webui_sd_override);
   RUN_TEST(test_webui_leaves_other_files_alone);
-  RUN_TEST(test_webui_clean_sd);
+  RUN_TEST(test_webui_retired_graph_redirects);
   return UNITY_END();
 }

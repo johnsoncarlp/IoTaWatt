@@ -9,8 +9,6 @@ import gzip, hashlib, os
 FILES = [                                   # (SD file, content type)
     ("index.htm",    "text/html"),
     ("edit.htm",     "text/html"),
-    ("graph.htm",    "text/html"),
-    ("graph.js",     "application/javascript"),
     ("graph2.htm",   "text/html"),
     ("graph2.js",    "application/javascript"),
     ("cnfstyle.css", "text/css"),
