@@ -394,7 +394,7 @@ bool copyFile(const char* dest, const char* source){
         spiffsWrite(destPath.substring(11).c_str(), "", false);        // Create a null file
     } else {
         if(SD.exists(dest)) SD.remove(dest);
-        File outFile = SD.open(destPath, FILE_WRITE);
+        outFile = SD.open(destPath, FILE_WRITE);       // was a shadowing local: SD copies wrote nothing
         if( ! outFile){
             inFile.close();
             return false;
