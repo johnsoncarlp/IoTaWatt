@@ -386,7 +386,7 @@ bool Emoncms_uploader::configCB(JsonObject& config){
     int index = 0;
     while(script){
         if(String(script->name()).toInt() <= index){
-            log("%s: output sequence error, stopping.");
+            log("%s: output sequence error, stopping.", _id);
             return false;
         }
         else {
