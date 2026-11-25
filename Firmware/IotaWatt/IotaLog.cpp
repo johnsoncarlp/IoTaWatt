@@ -105,7 +105,7 @@ uint32_t IotaLog::findWrap(uint32_t highPos, uint32_t highKey, uint32_t lowPos, 
 	if((lowPos - highPos) == _recordSize) {
 			return lowPos;
 	}
-	uint32_t midPos = (highPos + lowPos) / 2;
+	uint32_t midPos = highPos + (lowPos - highPos) / 2;		// no uint32 overflow past 2 GB
 	midPos += midPos % _recordSize;
 	IotaFile.seek(midPos);
 	IotaFile.read((uint8_t*)&recordKey, sizeof(recordKey));
@@ -234,7 +234,11 @@ uint32_t IotaLog::readKeyIO(){return _readKeyIO;}
 uint32_t IotaLog::interval(){return _interval;}
 
 uint32_t IotaLog::setDays(uint32_t days){
-	_maxFileSize = max(_fileSize, (uint32_t)(days * _recordSize * (86400UL / _interval)));
+		// 64-bit: days * 256 * 17280 overflows uint32 above ~970 days. Clamp to the largest
+		// whole number of records a 32-bit file size/position can hold.
+	uint64_t wanted = (uint64_t)days * _recordSize * (86400UL / _interval);
+	uint64_t limit = (0xFFFFFFFFULL / _recordSize) * _recordSize;
+	_maxFileSize = max(_fileSize, (uint32_t)min(wanted, limit));
 	_maxFileSize = max(_maxFileSize, (uint32_t)(_recordSize * (3600UL / _interval)));
 	return _maxFileSize / (_recordSize * (86400 / _interval));
 }
@@ -243,7 +247,7 @@ int IotaLog::readSerial(IotaLogRecord* callerRecord, int32_t serial){
 	if(serial < _firstSerial || serial > _lastSerial){
 			return 1;
 	}
-	int pos = ((serial - _firstSerial) * _recordSize + _wrap) % _fileSize;
+	uint32_t pos = (uint32_t)(((uint64_t)(serial - _firstSerial) * _recordSize + _wrap) % _fileSize);	// int overflowed past 2 GB
 	if(_writeCache && pos >= _writeCachePos && pos < (_writeCachePos + IOTALOG_BLOCK_SIZE)){
 		memcpy(callerRecord, _writeCacheBuf + (pos % IOTALOG_BLOCK_SIZE), _recordSize);
 	}
@@ -279,6 +283,7 @@ int IotaLog::write (IotaLogRecord* callerRecord){
 		IotaFile.seek(_wrap);
 		_wrap = (_wrap + _recordSize) % _fileSize;
 		IotaFile.write((char*)callerRecord, _recordSize);
+		IotaFile.seek(_wrap);						// next oldest record; after the last record that is 0, not EOF
 		IotaFile.read((uint8_t*)callerRecord,8);
 		_firstKey = callerRecord->UNIXtime;
 		_firstSerial = callerRecord->serial;
