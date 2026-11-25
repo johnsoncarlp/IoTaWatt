@@ -553,6 +553,7 @@
         var originalName;
         var originalNtp;
         var originalNtpInterval;
+        var originalSdWebui;
         var timezone = 0;
         var faults = 0;
         var tokens = [{
@@ -1954,6 +1955,14 @@
             ntpInterval.value = config.device.ntpinterval ? Math.round(config.device.ntpinterval / 60) : "";
             ntpInterval.title = "How often to check the time servers. Blank: every 60 minutes. 5 to 1440.";
             ntpInterval.setAttribute("oninput", "config.device.ntpinterval = this.value ? Math.round(this.value * 60) : undefined; checkDevice();");
+            originalSdWebui = config.device.sdwebui;
+            var sdWebui = addTableRow(deviceTable, "Use web UI files from SD card:", "deviceSdWebui", "input");
+            sdWebui.setAttribute("type", "checkbox");
+            sdWebui.checked = config.device.sdwebui === true;
+            sdWebui.title = "Advanced. Normally the web UI built into the firmware is used, so it always matches it.\n" +
+                "Check to serve web UI files from the SD card instead (custom or test versions).\n" +
+                "If a page from the SD card doesn't work, open http://" + location.host + "/?ui=embedded to get back here.";
+            sdWebui.setAttribute("onchange", "config.device.sdwebui = this.checked || undefined; checkDevice();");
 
             var deviceUpdate = addTableRow(deviceTable, "Auto-update Class:", "deviceUpdate", "select");
             for (i in updateClasses) {
@@ -1994,6 +2003,7 @@
             config.device.name = originalName;
             config.device.ntp = originalNtp;
             config.device.ntpinterval = originalNtpInterval;
+            config.device.sdwebui = originalSdWebui;
             config.timezone = timezone;
             editing = false;
             currentBodyPop();
