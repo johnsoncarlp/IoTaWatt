@@ -235,6 +235,20 @@ static void test_sdwebui_setting(void){
   }
 }
 
+// "roam" device setting: on unless false/"false"/0.
+static void test_roam_setting(void){
+  struct { const char* device; bool expect; } cases[] = {
+    {"{}", true}, {"{\"roam\":true}", true}, {"{\"roam\":false}", false}, {"{\"roam\":\"false\"}", false},
+    {"{\"roam\":0}", false}, {"{\"roam\":null}", true}, {"{\"roam\":\"no\"}", false},
+  };
+  for(auto& c : cases){
+    setUp(); wifiRoam = !c.expect;
+    putFile("/config.txt", (std::string("{\"device\":") + c.device + "}").c_str());
+    setConfig("config.txt");
+    TEST_ASSERT_EQUAL_MESSAGE(c.expect, wifiRoam, c.device);
+  }
+}
+
 static void test_minimal_and_wrong_types(void){
   const char* cases[] = {
     "{}",
@@ -327,6 +341,7 @@ int main(int, char**){
   RUN_TEST(test_ntp_setting);
   RUN_TEST(test_ntpinterval_setting);
   RUN_TEST(test_sdwebui_setting);
+  RUN_TEST(test_roam_setting);
   RUN_TEST(test_minimal_and_wrong_types);
   RUN_TEST(test_tables_array_longer_than_100_chars);
   RUN_TEST(test_reload_does_not_leak);
