@@ -554,6 +554,7 @@
         var originalNtp;
         var originalNtpInterval;
         var originalSdWebui;
+        var originalRoam;
         var timezone = 0;
         var faults = 0;
         var tokens = [{
@@ -1955,6 +1956,14 @@
             ntpInterval.value = config.device.ntpinterval ? Math.round(config.device.ntpinterval / 60) : "";
             ntpInterval.title = "How often to check the time servers. Blank: every 60 minutes. 5 to 1440.";
             ntpInterval.setAttribute("oninput", "config.device.ntpinterval = this.value ? Math.round(this.value * 60) : undefined; checkDevice();");
+            originalRoam = config.device.roam;
+            var roam = addTableRow(deviceTable, "Move to the strongest Wi-Fi access point:", "deviceRoam", "input");
+            roam.setAttribute("type", "checkbox");
+            roam.checked = config.device.roam !== false;
+            roam.title = "With several access points for the same network, move to one that is clearly stronger\n" +
+                "when the signal is weak (checked every few minutes; at most one move per 10 minutes).";
+            roam.setAttribute("onchange", "config.device.roam = this.checked ? undefined : false; checkDevice();");
+
             originalSdWebui = config.device.sdwebui;
             var sdWebui = addTableRow(deviceTable, "Use web UI files from SD card:", "deviceSdWebui", "input");
             sdWebui.setAttribute("type", "checkbox");
@@ -2004,6 +2013,7 @@
             config.device.ntp = originalNtp;
             config.device.ntpinterval = originalNtpInterval;
             config.device.sdwebui = originalSdWebui;
+            config.device.roam = originalRoam;
             config.timezone = timezone;
             editing = false;
             currentBodyPop();
