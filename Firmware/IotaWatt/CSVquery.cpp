@@ -204,7 +204,12 @@ bool    CSVquery::setup(){
             } else {
                 element = "";
             }
-            if(name.length() == 0) continue;
+            if(name.length() == 0){             // empty element, e.g. select=[,time]: drop its column
+                _columns = col->next;
+                col->next = nullptr;
+                delete col;
+                continue;
+            }
 
             if(name.equalsIgnoreCase("time")){
                 col->source = 'T';
@@ -343,6 +348,10 @@ bool    CSVquery::setup(){
             col = next;
         }
         _columns = prev;
+        if( ! _columns){
+            _failReason = F("No series selected");
+            return false;
+        }
         if(_columns->next == nullptr && _columns->source == 'T'){
             _timeOnly = true;
         }
