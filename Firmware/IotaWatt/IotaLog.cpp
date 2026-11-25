@@ -57,14 +57,24 @@ int IotaLog::begin (const char* path ){
 			// If there are trailing zero recordKeys at the end,
 			// try to adjust _filesize down to match logical end of file.
 
-	while(_fileSize && _lastSerial == 0){
-		IotaLogRecord* logRec = new IotaLogRecord;
+			// Preformatted records are all zero. Test the key, not the serial: the first real record
+			// has serial 0 too, so a log with one record used to be stripped to nothing, read at
+			// offset -recordSize and declared damaged (deleted, device restarted).
+
+	while(_fileSize && _lastKey == 0){
 		_fileSize -= _recordSize;
+		_entries--;
+		if(_fileSize == 0){								// nothing but preformat: an empty log
+			_firstKey = _lastKey = 0;
+			_firstSerial = 0;
+			_lastSerial = -1;
+			break;
+		}
+		IotaLogRecord* logRec = new IotaLogRecord;
 		IotaFile.seek(_fileSize - _recordSize);
 		IotaFile.read((uint8_t*)logRec, _recordSize);
 		_lastSerial = logRec->serial;
 		_lastKey = logRec->UNIXtime;
-		_entries--;	 
 		delete logRec;
 	}
 	
