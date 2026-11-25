@@ -32,7 +32,9 @@ uint32_t PVoutputTick(struct serviceBlock* serviceBlock) {
            return reschedule; 
         } else {
             log("PVoutput: Stopped.");
-            if(pvoutput) pvoutput->stop();
+            if(PVoutput == pvoutput){       // tick() returns 0 after an end() deleted the instance
+                pvoutput->stop();
+            }
         }
         trace(T_PVoutput,3);
     }
