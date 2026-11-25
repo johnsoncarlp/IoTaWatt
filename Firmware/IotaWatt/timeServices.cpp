@@ -1,6 +1,5 @@
 #include "IotaWatt.h"
-
-#define UNIX2018 1514796044UL                // Earliest plausible time (sanity check)
+#include "ntpCheck.h"
 
 #define ntpPort 2390 
   struct ntpPacket {  /* courtesy Eugene Ma */
@@ -154,13 +153,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
     trace(T_timeSync, 81);
     return UTCtime() + (RTCrunning ? 60 : 5);
   }
-        // Reject unsynchronized servers (leap indicator 3) and a zero transmit time (RFC 4330),
-        // then sanity check as UNIX time. NTP seconds roll over in Feb 2036; the uint32
-        // arithmetic here and in NTPtime()/UTCtime() stays correct across that (until 2106),
-        // so there is no upper bound. (An upper bound of 2028 stopped all time sync from
-        // 2028-01-01.)
-  if((packet.flags >> 6) == 3 || packet.trans_ts_sec == 0 ||
-     (uint32_t)(packet.trans_ts_sec - SECONDS_PER_SEVENTY_YEARS) < UNIX2018){
+  if( ! ntpReplyPlausible(packet.flags, packet.trans_ts_sec)){       // see ntpCheck.h
     trace(T_timeSync, 82);
     return UTCtime() + (RTCrunning ? 60 : 5);
   }
