@@ -392,15 +392,15 @@ String influxDB_uploader::varStr(const char* in, Script* script)
 
   String out;
   while(*in){ 
-    if(memcmp(in,"$device",7) == 0){
+    if(strncmp(in,"$device",7) == 0){                  // strncmp: memcmp read past the end of short strings
       out += deviceName;
       in += 7;
     }
-    else if(memcmp(in,"$name",5) == 0){
+    else if(strncmp(in,"$name",5) == 0){
       out += script->name();
       in += 5;
     }
-    else if(memcmp(in,"$units",6) == 0){
+    else if(strncmp(in,"$units",6) == 0){
       out += script->getUnits();
       in += 6;
     }
