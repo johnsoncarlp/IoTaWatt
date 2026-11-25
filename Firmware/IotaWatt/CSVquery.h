@@ -10,6 +10,7 @@ class  CSVquery {
         bool    setup();
         size_t  readResult(uint8_t* buf, int len);
         bool    isJson();
+        bool    timedOut(){return _timedOut;}   // caller must abort the transfer (output is incomplete)
         bool    isCSV();
         String  failReason();
 
@@ -61,6 +62,8 @@ class  CSVquery {
         bool        _integrations;              // Period and Group should work with integrations
         bool        _firstLine;                 // True when no lines have been generated
         bool        _lastLine;                  // True when last line has been generated
+        uint32_t    _startMs;                   // millis() when the select started (time budget)
+        bool        _timedOut = false;          // Headerless JSON hit the time budget: no marker possible
         bool        _missingSkip;               // Omit output line when no data
         bool        _missingNull;               // Produce null values when no data
         bool        _missingZero;               // Produce zero values when no data

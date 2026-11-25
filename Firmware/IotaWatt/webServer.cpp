@@ -913,6 +913,10 @@ void handleQuery(){
     }
     trace(T_WEB,56);
     //server.sendContent((char*)buf, 0);
+    if(query->timedOut()){
+      log("query: time limit reached, transfer aborted (incomplete JSON array).");
+      server.client().stop();                 // no final chunk: the client sees an error, not partial data
+    }
     delete[] buf;
   }
   delete query;

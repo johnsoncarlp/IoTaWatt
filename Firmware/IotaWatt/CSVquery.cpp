@@ -29,6 +29,8 @@ CSVquery::~CSVquery(){
     trace(T_CSVquery,1,3);
 }
 
+#define QUERY_TIME_BUDGET_MS 60000UL
+
 bool    CSVquery::setup(){
     trace(T_CSVquery,10);
 
@@ -383,6 +385,7 @@ bool    CSVquery::setup(){
         _newRec->UNIXtime = _begin;
         logReadKey(_newRec);
         trace(T_CSVquery,20);
+        _startMs = millis();
         _query = select;
         return true;
     }
@@ -638,17 +641,33 @@ size_t  CSVquery::readResult(uint8_t* buf, int len){
                     // If at end of range, or limit reached
                     // Finish output stream and break.
 
-                else if(_newRec->UNIXtime >= _end || _limit == 0){
+                    // The query runs synchronously in the main loop, which stops sampling and
+                    // the datalog; past 300 s the datalog WDT restarts the device. End a query
+                    // that runs longer than QUERY_TIME_BUDGET_MS the same way as a reached limit,
+                    // so the client gets the usual "limit" marker and can continue from there.
+
+                else if(_newRec->UNIXtime >= _end || _limit == 0 || (millis() - _startMs) > QUERY_TIME_BUDGET_MS){
                     trace(T_CSVquery,45);
+                    bool timeUp = _newRec->UNIXtime < _end && _limit != 0;
+                    if(timeUp && _format == formatJson && ! _header){
+                        _timedOut = true;               // a bare array can't carry a marker: fail the transfer
+                        _lastLine = true;
+                        return written;
+                    }
                     if(_format == formatJson){
                         _buffer.print(']');
                     }
-                    if(_limit == 0 && _newRec->UNIXtime < _end){
+                    if(_newRec->UNIXtime < _end){
                         if(_format == formatCSV){
-                            _buffer.printf_P(PSTR("\r\nLimit exceeded at %d"), _newRec->UNIXtime);
+                            if(timeUp){
+                                _buffer.printf_P(PSTR("\r\nLimit exceeded at %d (time limit)"), _newRec->UNIXtime);   // same prefix as the row limit
+                            } else {
+                                _buffer.printf_P(PSTR("\r\nLimit exceeded at %d"), _newRec->UNIXtime);
+                            }
                         }
                         else if(_header){
                             _buffer.printf_P(PSTR(",\"limit\":%d"), _newRec->UNIXtime);
+                            if(timeUp) _buffer.print(F(",\"timeout\":true"));
                         }
                     }
                     if(_format == formatJson && _header){
