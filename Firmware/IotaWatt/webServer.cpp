@@ -901,7 +901,7 @@ void handleQuery(){
     }
     trace(T_WEB,56);
     //server.sendContent((char*)buf, 0);
-    delete buf;
+    delete[] buf;
   }
   delete query;
   trace(T_WEB,59);
