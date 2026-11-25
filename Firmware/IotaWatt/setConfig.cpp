@@ -114,6 +114,9 @@ boolean setConfig(const char* configPath){
     char* deviceStr = JsonDetail(ConfigFile, deviceArray);
     configDevice(deviceStr);
     delete[] deviceStr;
+  }
+  else {
+    configDevice("{}");               // no "device" section: use defaults, so the input channels exist
   }  
 
   //************************************ Configure DST rule *********************************
