@@ -629,7 +629,12 @@ void handleStatus(){
       trace(T_WEB,18,3);  
       Script *script = integrations->first();
       while(script){
-        IotaLog *log = ((integrator *)script->getParm())->get_log();
+        integrator *intgr = (integrator *)script->getParm();
+        IotaLog *log = intgr ? intgr->get_log() : nullptr;
+        if( ! log){                           // integration log not open (yet)
+          script = script->next();
+          continue;
+        }
         JsonObject intlog = datalogs.add<JsonObject>();
         intlog[F("id")] = script->name();
         intlog[F("firstkey")] = log->firstKey();

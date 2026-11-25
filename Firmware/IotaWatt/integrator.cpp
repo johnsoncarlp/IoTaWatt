@@ -39,7 +39,7 @@ uint32_t integrator::dispatch(struct serviceBlock *serviceBlock)
 }
 
 integrator::~integrator(){
-    _log->end();
+    if(_log) _log->end();
     String filepath(FPSTR(intDirectory_P));
     filepath += "/";
     filepath += _name;
@@ -82,6 +82,7 @@ uint32_t integrator::handle_initialize_s(){
     if(_log->begin(filepath.c_str())){
         log("%s: Couldn't open integration file %s.", _id, filepath.c_str());
         delete _log;
+        _log = nullptr;
         return 0;
     }
     trace(T_integrator,10);
