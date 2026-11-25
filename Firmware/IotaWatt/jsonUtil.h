@@ -4,12 +4,18 @@
 #include <ArduinoJson.h>
 #include <stdlib.h>
 #include <math.h>
+#include <type_traits>
 
 /*******************************************************************************************************
  *  ArduinoJson 5 compatible value conversion.
  *
- *  ArduinoJson 5 converted strings when a number or bool was requested: as<int>() on "15" returned 15,
- *  as<bool>() on "true" returned true. ArduinoJson 6 and 7 return 0/false instead.
+ *  ArduinoJson 5 and 7 convert differently (measured on the 39 cases in test/test_jsonutil):
+ *    - as<bool>() on a string: v7 is true for ANY non-empty string, so "false" -> true. v5: "false" -> false.
+ *    - as<int>() on "15abc", "true", "t", "1.25e2": v7 0. v5 15, 1, 1, 1.
+ *    - as<unsigned>() on -1 or "-3": v7 0. v5 wraps (4294967295, 4294967293).
+ *    - as<const char*>() on a number or bool: v7 nullptr. v5 its text ("12345").
+ *    - "\u0000"-style escapes: v7 decodes them; v5 dropped the backslash ("u0000").
+ *  Well-formed numeric strings ("15", "2.5") convert the same in both.
  *
  *  Config files written by the IoTaWatt web app contain quoted numbers (e.g. "channels":"15"), and
  *  users can edit config.txt by hand, so everything that reads user configuration uses these helpers
@@ -40,16 +46,21 @@ T jInt(JsonVariantConst v) {
     bool negative = false;
     if (*s == '-') { negative = true; s++; }
     else if (*s == '+') { s++; }
-    T result = 0;
+    typedef typename std::make_unsigned<T>::type U;     // wrap like v5, but without signed-overflow UB
+    U result = 0;
     while (*s >= '0' && *s <= '9') {
-      result = T(result * 10 + T(*s - '0'));
+      result = U(result * 10u + U(*s - '0'));
       s++;
     }
-    return negative ? T(~result + 1) : result;
+    return T(negative ? U(~result + 1u) : result);
   }
   if (v.is<bool>()) return v.as<bool>() ? 1 : 0;
   if (v.is<long long>()) return T(v.as<long long>());   // plain cast, as v5 (wraps instead of 0)
-  if (v.is<double>()) return T(v.as<double>());         // truncates, as v5
+  if (v.is<double>()) {                                 // truncates, as v5; casting a non-finite or
+    double d = v.as<double>();                          // out-of-range double is UB, so go via long long
+    if (!(d > -9.2e18 && d < 9.2e18)) return 0;
+    return T((long long)d);
+  }
   return 0;
 }
 
