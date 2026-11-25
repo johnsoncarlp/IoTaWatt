@@ -1,4 +1,6 @@
+#ifndef IOTAWATT_HOST_TEST
 #include "IotaWatt.h"
+#endif
 #include "PVoutput_uploader.h"
 
 /******************************************************************************************************

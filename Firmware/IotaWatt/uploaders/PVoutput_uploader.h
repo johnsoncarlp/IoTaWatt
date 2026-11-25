@@ -1,7 +1,12 @@
 #ifndef PVoutput_h
 #define PVoutput_h
+#ifdef IOTAWATT_HOST_TEST
+#include "host_uploader_deps.h"         // host unit tests (Firmware/test/shim)
+bool delete_uploader(const char *ID);
+#else
 #include "IotaWatt.h"
 #include "Uploader_Registry.h"
+#endif
 
 //********************************************************************************************************
 // PVoutput class

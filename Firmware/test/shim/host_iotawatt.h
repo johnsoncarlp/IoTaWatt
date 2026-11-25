@@ -29,7 +29,8 @@ using std::min;
 #define constrain(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
 #define F(s) (s)
 class __FlashStringHelper;                      // only named by overloads in the real utilities
-#define FPSTR(s) (s)
+#define FPSTR(s) (reinterpret_cast<const __FlashStringHelper*>(s))
+#define strstr_P strstr
 
 // Messages the firmware logs: tests can inspect them.
 inline std::vector<std::string> hostLog;

@@ -72,7 +72,7 @@ inline long random(long howbig) { hostRandomSeed = hostRandomSeed * 1103515245u 
 
 // ---- fake HTTP ----
 struct HostHttpRequest { std::string method, url, body; std::map<std::string, std::string> headers; };
-struct HostHttpReply { int code; std::string text; };
+struct HostHttpReply { int code; std::string text; std::map<std::string, std::string> headers = {}; };
 inline std::vector<HostHttpRequest> hostHttpLog;
 inline std::deque<HostHttpReply> hostHttpReplies;
 class asyncHTTPrequest {
@@ -88,12 +88,22 @@ class asyncHTTPrequest {
   int  readyState() { return _state; }
   int  responseHTTPcode() { return _code; }
   String responseText() { return String(_text); }
+  size_t available() { return _text.size() - _readPos; }
+  size_t responseRead(uint8_t* b, size_t n) { n = std::min(n, available()); memcpy(b, _text.data() + _readPos, n); _readPos += n; return n; }
+  typedef const __FlashStringHelper* FSH;      // the device library also takes flash strings
+  void setReqHeader(FSH n, const char* v) { setReqHeader(reinterpret_cast<const char*>(n), v); }
+  bool respHeaderExists(FSH n) { return respHeaderExists(reinterpret_cast<const char*>(n)); }
+  char* respHeaderValue(FSH n) { return respHeaderValue(reinterpret_cast<const char*>(n)); }
+  bool respHeaderExists(const char* n) { return _hdrs.count(n); }
+  char* respHeaderValue(const char* n) { auto it = _hdrs.find(n); return it == _hdrs.end() ? nullptr : (char*)it->second.c_str(); }
  private:
   bool finish() {
     hostHttpLog.push_back(_cur);
     if (hostHttpReplies.empty()) { _code = -4; _text = ""; }     // no reply scripted: like a timeout
-    else { _code = hostHttpReplies.front().code; _text = hostHttpReplies.front().text; hostHttpReplies.pop_front(); }
+    else { _code = hostHttpReplies.front().code; _text = hostHttpReplies.front().text; _hdrs = hostHttpReplies.front().headers; hostHttpReplies.pop_front(); }
+    _readPos = 0;
     _state = 4; return true;
   }
-  HostHttpRequest _cur; int _state = 0, _code = 0; std::string _text;
+  HostHttpRequest _cur; int _state = 0, _code = 0; std::string _text; size_t _readPos = 0;
+  std::map<std::string, std::string> _hdrs;
 };

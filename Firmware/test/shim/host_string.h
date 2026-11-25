@@ -10,6 +10,7 @@ class String {
  public:
   String() {}
   String(const char* s) : _s(s ? s : "") {}
+  String(const class __FlashStringHelper* s) : String(reinterpret_cast<const char*>(s)) {}   // FPSTR(): flash is plain memory on the host
   String(const std::string& s) : _s(s) {}
   String(char c) : _s(1, c) {}
   String(int v) : _s(std::to_string(v)) {}
@@ -47,6 +48,7 @@ class String {
   float toFloat() const { return (float)atof(_s.c_str()); }
   String& operator+=(const String& o) { _s += o._s; return *this; }
   String& operator+=(const char* o) { if (o) _s += o; return *this; }
+  String& operator+=(const class __FlashStringHelper* o) { return *this += reinterpret_cast<const char*>(o); }
   String& operator+=(char c) { _s += c; return *this; }
   String& operator+=(int v) { _s += std::to_string(v); return *this; }
   bool concat(const char* o) { if (o) _s += o; return true; }
