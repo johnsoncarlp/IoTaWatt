@@ -551,6 +551,7 @@
         var avgVoltage = 0;
         var calVTvolts = 0;
         var originalName;
+        var originalNtp;
         var timezone = 0;
         var faults = 0;
         var tokens = [{
@@ -1933,6 +1934,15 @@
             allowDST.checked = (config.dstrule != undefined) ? true : false;
             allowDST.setAttribute("onchange", "checkDevice();");
 
+            originalNtp = config.device.ntp;
+            var deviceNtp = addTableRow(deviceTable, "Time server(s):", "deviceNtp", "input", 30);
+            deviceNtp.value = config.device.ntp || "";
+            deviceNtp.placeholder = "automatic";
+            deviceNtp.title = "Optional. Up to 3 NTP server names or IP addresses, separated by commas.\n" +
+                "Blank: use the servers your DHCP server provides (option 42), otherwise time1-4.google.com.";
+            deviceNtp.pattern = "[0-9A-Za-z._\\-]+([ ,;]+[0-9A-Za-z._\\-]+){0,2}";
+            deviceNtp.setAttribute("oninput", "config.device.ntp = this.value.trim() || undefined; checkDevice();");
+
             var deviceUpdate = addTableRow(deviceTable, "Auto-update Class:", "deviceUpdate", "select");
             for (i in updateClasses) {
                 var option = document.createElement("option");
@@ -1963,11 +1973,13 @@
                 }
             }
             if (!validateInput("deviceTimezone")) complete = false;
+            if (!validateInput("deviceNtp", false, "Host names or IP addresses, up to 3, separated by commas")) complete = false;
             EbyId("deviceSave").style.display = complete ? "inline" : "none";
         }
 
         function deviceCancel() {
             config.device.name = originalName;
+            config.device.ntp = originalNtp;
             config.timezone = timezone;
             editing = false;
             currentBodyPop();
