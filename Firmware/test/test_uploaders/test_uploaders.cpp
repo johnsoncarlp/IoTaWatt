@@ -95,6 +95,65 @@ static void test_influxdb_v1_query_and_write(void){
   delete u;
 }
 
+// B50: names with line-protocol and query syntax in them are escaped/quoted. Expected strings computed
+// independently in Python (urllib.parse.quote_plus; InfluxQL/Flux/line-protocol escaping rules).
+static const char* HOSTILE_OUT = "[{\"name\":\"Main\",\"units\":\"Watts\",\"script\":\"@1\"}]";
+static const char* HOSTILE_KEYS = "\"measurement\":\"Main Panel\",\"fieldkey\":\"kW,net\","
+  "\"tagset\":[{\"key\":\"loc=x\",\"value\":\"O'Brien {a} \\\"q\\\"\"}]";
+
+static void test_influx_escaping_v1(void){
+  std::string cfg = std::string("{\"type\":\"influxdb\",\"revision\":1,\"url\":\"http://influx.lan:8086\",\"database\":\"iotawatt\","
+    "\"postInterval\":10,\"bulksend\":1,") + HOSTILE_KEYS + ",\"outputs\":" + HOSTILE_OUT + "}";
+  influxDB_uploader* u = new influxDB_uploader;
+  TEST_ASSERT_TRUE(u->config(cfg.c_str()));
+  char r[256]; snprintf(r, sizeof r, "{\"results\":[{\"statement_id\":0,\"series\":[{\"name\":\"Main Panel\",\"columns\":[\"time\",\"last\"],\"values\":[[%u,1]]}]}]}", T0 + 3600);
+  hostHttpReplies.push_back({200, r});
+  hostHttpReplies.push_back({204, ""});
+  runUntil(hostServices.back(), 2);
+  TEST_ASSERT_EQUAL_INT(2, hostHttpLog.size());
+  TEST_ASSERT_EQUAL_STRING("db=iotawatt&epoch=s&q=SELECT+LAST%28%22kW%2Cnet%22%29+FROM+%22Main+Panel%22+WHERE+%22loc%3Dx%22%3D%27O%5C%27Brien+%7Ba%7D+%22q%22%27",
+                           hostHttpLog[0].body.c_str());
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, hostHttpLog[1].body.rfind("Main\\ Panel,loc\\=x=O'Brien\\ {a}\\ \"q\" kW\\,net=", 0), hostHttpLog[1].body.c_str());
+  delete u;
+}
+
+static void test_influx_escaping_v2(void){
+  std::string cfg = std::string("{\"type\":\"influxdb2\",\"revision\":1,\"url\":\"http://influx2.lan:8086\",\"bucket\":\"energy\","
+    "\"orgid\":\"0123456789abcdef\",\"authtoken\":\"") + std::string(88, 'A') + "\",\"postInterval\":10,\"bulksend\":1,"
+    + HOSTILE_KEYS + ",\"outputs\":" + HOSTILE_OUT + "}";
+  influxDB2_uploader* u = new influxDB2_uploader;
+  TEST_ASSERT_TRUE(u->config(cfg.c_str()));
+  char csv[200]; snprintf(csv, sizeof csv, ",result,table,_measurement,_time\r\n,_result,0,Main Panel,%u\r\n", T0 + 3600);
+  hostHttpReplies.push_back({200, csv});
+  hostHttpReplies.push_back({204, ""});
+  runUntil(hostServices.back(), 2);
+  TEST_ASSERT_EQUAL_INT(2, hostHttpLog.size());
+  const std::string& q = hostHttpLog[0].body;
+  TEST_ASSERT_TRUE_MESSAGE(q.find("from(bucket: \"energy\")") != std::string::npos, q.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(q.find("(r._measurement == \"Main Panel\" and r[\"loc=x\"] == \"O'Brien {a} \\\"q\\\"\" and r._field == \"kW,net\")") != std::string::npos, q.c_str());
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, hostHttpLog[1].body.rfind("Main\\ Panel,loc\\=x=O'Brien\\ {a}\\ \"q\" kW\\,net=", 0), hostHttpLog[1].body.c_str());
+  delete u;
+}
+
+static void test_influx_escape_helpers(void){
+  struct { const char *in, *flux, *ident, *str, *form, *key; } c[] = {
+    {"${a}",      "\"\\${a}\"",  "\"${a}\"",   "'${a}'",   "%24%7Ba%7D",   "${a}"},
+    {"a\\b",      "\"a\\\\b\"",  "\"a\\\\b\"", "'a\\\\b'", "a%5Cb",        "a\\b"},
+    {"$x {y}",    "\"$x {y}\"",  "\"$x {y}\"", "'$x {y}'", "%24x+%7By%7D", "$x\\ {y}"},
+    {"plain_1.2", "\"plain_1.2\"", "\"plain_1.2\"", "'plain_1.2'", "plain_1.2", "plain_1.2"},
+    {"",          "\"\"",        "\"\"",       "''",       "",             ""},
+  };
+  for(auto& k : c){
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(k.flux,  fluxString(k.in).c_str(), k.in);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(k.ident, iqlIdent(k.in).c_str(), k.in);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(k.str,   iqlString(k.in).c_str(), k.in);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(k.form,  formEncode(k.in).c_str(), k.in);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(k.key,   lpKey(k.in).c_str(), k.in);
+  }
+  TEST_ASSERT_EQUAL_STRING("Main\\ Panel\\,x=y", lpMeasurement("Main Panel,x=y").c_str());   // '=' is literal in a measurement
+  TEST_ASSERT_EQUAL_STRING("", lpKey(nullptr).c_str());
+}
+
 static std::string influxV1Config(int revision = 1, const char* extra = ""){
   return std::string("{\"type\":\"influxdb\",\"revision\":") + std::to_string(revision) + ",\"url\":\"http://influx.lan:8086\","
     "\"database\":\"iotawatt\",\"postInterval\":10,\"bulksend\":2,\"measurement\":\"$name\",\"fieldkey\":\"value\"" + extra + ",\"outputs\":" + OUTPUTS + "}";
@@ -403,6 +462,9 @@ int main(int, char**){
   buildLog(3);
   UNITY_BEGIN();
   RUN_TEST(test_influxdb_v1_query_and_write);
+  RUN_TEST(test_influx_escaping_v1);
+  RUN_TEST(test_influx_escaping_v2);
+  RUN_TEST(test_influx_escape_helpers);
   RUN_TEST(test_influxdb_v1_failures_and_retry);
   RUN_TEST(test_influxdb_v1_auth_failure_stops);
   RUN_TEST(test_influxdb_v1_empty_database_starts_at_log_end);
