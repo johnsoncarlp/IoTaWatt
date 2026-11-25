@@ -117,7 +117,10 @@ TString jStrAs(JsonVariantConst v) {
   return s;
 }
 
-#ifdef ARDUINO
+#if defined(IOTAWATT_HOST_TEST)
+#include "host_string.h"                    // host unit tests: Arduino String stand-in
+#endif
+#if defined(ARDUINO) || defined(IOTAWATT_HOST_TEST)
 inline String jStr(JsonVariantConst v) { return jStrAs<String>(v); }
 #endif
 

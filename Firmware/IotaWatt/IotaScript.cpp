@@ -1,4 +1,9 @@
+#ifdef IOTAWATT_HOST_TEST
+#include "host_iotawatt.h"           // host unit tests (Firmware/test/shim)
+#include "host_script_deps.h"
+#else
 #include "IotaWatt.h"
+#endif
 #include "IotaScript.h"
 
 // Following literals must match enumeration in .h
