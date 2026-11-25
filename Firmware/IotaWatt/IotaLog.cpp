@@ -40,6 +40,7 @@ int IotaLog::begin (const char* path ){
 	}
 	
 	_fileSize = _physicalSize = IotaFile.size();
+	_fileSize -= _fileSize % _recordSize;		// ignore a partial trailing record (findWrap needs whole records)
 
 	if(_fileSize){
 			IotaFile.seek(0);
@@ -107,7 +108,7 @@ uint32_t IotaLog::findWrap(uint32_t highPos, uint32_t highKey, uint32_t lowPos, 
 		uint32_t serial; 
 	} recordKey;
 	
-	if((lowPos - highPos) == _recordSize) {
+	if((lowPos - highPos) <= _recordSize) {		// was ==: misaligned positions recursed forever
 			return lowPos;
 	}
 	uint32_t midPos = highPos + (lowPos - highPos) / 2;		// no uint32 overflow past 2 GB
