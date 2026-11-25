@@ -661,7 +661,7 @@ bool arrayCopy(File tableFile, int16_t** entry){
 void dumpTable(modelTable* table, int count){
   Serial.println("initial");
   for (int n = 0; n < count; n++){
-    Serial.printf("%4d %4d %8x %8x %s\n", table[n].p50_pos, table[n].p60_pos, table[n].p50_ptr, table[n].p60_ptr, table[n].model);
+    Serial.printf("%4d %4d %8p %8p %s\n", table[n].p50_pos, table[n].p60_pos, (void*)table[n].p50_ptr, (void*)table[n].p60_ptr, table[n].model);
   }
 }
 
