@@ -35,6 +35,7 @@
   static double accum1Then [MAXINPUTS];
   static double accum2Then [MAXINPUTS];
   static uint32_t msThen = 0;
+  static bool clockBehind = false;
   static Ticker logWDT;
 #ifdef IOTAWATT_HOST_TEST
   hostLogWDT = &logWDT;                 // host tests watch the watchdog
@@ -111,7 +112,16 @@
 
       // If it's been a long time since last entry, skip ahead.
       
-      if((UTCtime() - logRecord->UNIXtime) > GapFill){
+      // Unsigned both ways: UNIX times pass INT32_MAX in 2038, and a new log's last entry is 0 (B67).
+
+      uint32_t now = UTCtime();
+      uint32_t last = logRecord->UNIXtime;
+      if(last > now && last - now > 2 * Current_log.interval()){       // RTC behind the log: wait for it
+        log("dataLog: clock is %us behind the last log entry, logging resumes at %s", last - now,
+            datef(UTC2Local(last + Current_log.interval())).c_str());
+        clockBehind = true;
+      }
+      if(now > last && now - last > GapFill){                          // a clock behind isn't a gap
         logRecord->UNIXtime = UTCtime();
         logRecord->UNIXtime -= logRecord->UNIXtime % Current_log.interval();
       }
@@ -127,7 +137,25 @@
 
       // If this seems premature.... get outta here.
 
-      if(UTCtime() < logRecord->UNIXtime) return 2;
+      // The clock can be behind the next entry: a restart whose RTC is behind the log, or an NTP
+      // correction of a fast clock. Entries can't go before the last one, so wait for the clock,
+      // checking every few seconds (not spinning) and keeping the watchdog fed: this isn't a hang.
+
+      if(UTCtime() < logRecord->UNIXtime){
+        uint32_t behind = logRecord->UNIXtime - UTCtime();
+        if(behind > 2 * Current_log.interval()){
+          if( ! clockBehind){
+            log("dataLog: clock is %us behind the last log entry, logging resumes at %s", behind,
+                datef(UTC2Local(logRecord->UNIXtime)).c_str());
+            clockBehind = true;
+          }
+          logWDT.detach();
+          logWDT.attach(300, dataLogWDT);
+          return UTCtime() + Current_log.interval();
+        }
+        return logRecord->UNIXtime;
+      }
+      clockBehind = false;
 
       // Save the old record if there are integration logs to update
 
