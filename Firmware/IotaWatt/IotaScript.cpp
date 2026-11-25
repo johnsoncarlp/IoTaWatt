@@ -172,6 +172,9 @@ bool    Script::encodeScript(const char* script){
       if(*scan == SCRIPT_CHAR_CONSTANT){
         constantCount++;
       }
+      if(*scan == SCRIPT_CHAR_INTEGRATION){
+        tokenCount++;                           // an integration encodes as two tokens (index, method)
+      }
       scan++;
     }
   } while (scan);
