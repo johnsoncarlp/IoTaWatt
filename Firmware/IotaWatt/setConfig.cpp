@@ -297,6 +297,13 @@ bool configDevice(const char* JsonStr){
     deviceName = charstar(jStr(device[F("name")]));
   }
 
+        // Time sync interval ("ntpinterval", seconds): default 3600, kept within 300 .. 86400.
+
+  {
+    int32_t interval = jInt<int32_t>(device[F("ntpinterval")]);
+    timeSynchInterval = interval ? constrain(interval, 300, 86400) : 3600;
+  }
+
         // Time servers: blank or missing = automatic (DHCP option 42, then the defaults).
 
   delete[] ntpServers;

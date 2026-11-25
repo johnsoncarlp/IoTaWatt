@@ -22,6 +22,7 @@ inline int32_t   localTimeDiff = 0;
 inline tzRule*   timezoneRule = nullptr;
 inline char*     deviceName = nullptr;
 inline char*     ntpServers = nullptr;
+inline uint32_t  timeSynchInterval = 3600;
 inline char*     HTTPSproxy = nullptr;
 inline float     VrefVolts = 2.5;
 inline uint8_t   ADC_selectPin[2] = {pin_CS_ADC0, pin_CS_ADC1};
