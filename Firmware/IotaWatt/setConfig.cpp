@@ -614,11 +614,6 @@ bool configOutputs(const char* JsonStr){
   trace(T_CONFIG,31,2);
   outputs = new ScriptSet(outputsArray);
   trace(T_CONFIG,31,3);
-  // outputs->sort([](Script* a, Script* b)->int{
-  //   int res = strcmp(a->name(), b->name());
-  //   Serial.printf("%s, %s, %d\r\n",a->getUnits(), b->getUnits(), res);
-  //   return res;
-  // });
   return true;
 } 
 
@@ -782,30 +777,6 @@ bool configMasterPhaseArray(){
     }
   }
     
-  // for(int t=0; t<models; t++){
-  //   Serial.printf("%s p50pos %d, p60pos %d\n", table[t].model, table[t].p50_pos, table[t].p60_pos);
-  //   int16_t* ptr = table[t].p50_ptr;
-  //   if(ptr){
-  //     Serial.print("  p50");
-  //     while(*ptr){
-  //       Serial.print(", ");
-  //       Serial.print((float)*ptr / 100.0);
-  //       ptr++;
-  //     }
-  //   }
-    
-  //   ptr = table[t].p60_ptr;
-  //   if(ptr){
-  //     Serial.print("  p60");
-  //     while(*ptr){
-  //       Serial.print(", ");
-  //       Serial.print((float)*ptr / 100.0);
-  //       ptr++;
-  //     }
-  //   }
-  //   Serial.println();
-  // }
-
   trace(T_CONFIG, 20, 7);
   tableFile.close();
   return true;

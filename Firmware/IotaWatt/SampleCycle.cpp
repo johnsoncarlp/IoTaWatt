@@ -263,27 +263,6 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
       return 1;
   }
 
-        // Adjust the offset values assuming symmetric waves but within limits otherwise.
- 
-//   const uint16_t minOffset = ADC_RANGE / 2 - ADC_RANGE / 200;    // Allow +/- .5% variation
-//   const uint16_t maxOffset = ADC_RANGE / 2 + ADC_RANGE / 200;
-
-//   trace(T_SAMP,9);
-
-//   if(sumV >= 0) sumV += samples / 2; 
-//   else sumV -= samples / 2;
-//   offsetV = Vchannel->_offset + sumV / samples;
-//   if(offsetV < minOffset) offsetV = minOffset;
-//   if(offsetV > maxOffset) offsetV = maxOffset;
-//   Vchannel->_offset = offsetV;
-  
-//   if(sumI >= 0) sumI += samples / 2;
-//   else sumI -= samples / 2;
-//   offsetI = Ichannel->_offset + sumI / samples;
-//   if(offsetI < minOffset) offsetI = minOffset;
-//   if(offsetI > maxOffset) offsetI = maxOffset;
-//   Ichannel->_offset = offsetI; 
-
             // Update damped frequency.
 
   float Hz = 1000000.0  / float((uint32_t)(lastCrossUs - firstCrossUs));

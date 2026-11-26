@@ -201,16 +201,6 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
     prevIP = timeServerIP;
     return UTCtime() + (RTCrunning ? 60 : 1);
   }
-  // if(prevDiff){
-  //   trace(T_timeSync, 92);
-  //   if(prevIP == timeServerIP){
-  //     trace(T_timeSync, 93);
-  //     return UTCtime() + 20;
-  //   }
-  //   log("IPs: %s, %s, prevDiff: %d", prevIP.toString().c_str(), timeServerIP.toString().c_str(), prevDiff);
-    //log("packet sec: %u, frac: %u",packet.trans_ts_sec, packet.trans_ts_frac);
-    //log("Comput sec: %u, frac: %u, duration: %d", current_ts_sec, current_ts_frac, duration);
-  // } 
   prevDiff = 0;
   fromSource = ntpFallback(fromSource, source, failures, true);
   
