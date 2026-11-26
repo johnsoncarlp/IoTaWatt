@@ -1,351 +1,205 @@
-  /****** Color Scheme ******************/
- 
- .color_outer {background-color: #c2eaba; border-color: black;}
- .color_menu {background-color: #a7c4a0;}
- .color_body {background-color: #e6efe9; border-color: grey;}
- .color_inputcontainer {background-color: #b6dbab; border-color: grey;}
- 
- /***** Global style attributes *******/
+/*
+ * IoTaWatt web UI: page styles on top of bootstrap.min.css (built from Firmware/scripts/webui-bootstrap).
+ * Colours and sizes come from Bootstrap's variables, so everything follows the light/dark theme.
+ */
 
- * {
-   box-sizing: border-box;
-   font-family: "arial", "sans-serif";
-   border-radius: 4px;
- }
- 
- h1, h2, h3, h4 {text-align: center;}
- 
- input, select {
-    background-color: whiteSmoke;
-    height: 35px;
-    min-width: 50px;
-    padding: 2px 3px 2px 3px;
-    border: 2px solid;
-    border-radius: 4px;
-    font-size: 100%;
-  }
-  
- input[type=checkbox]{
-    height: 18px;
-  }  
-  
- table {width: 100%}
-  
-  /***************** buttons  *************/  
-  
- button { 
-    height: 24px;
-    min-width: 40px;
-    border: 2px solid;
-    background-color: #a9b4ce; 
-    border-radius: 4px;
-    text-align: center;
-  }
- 
-  .buttonDown{background-color: #e6efe9;}
-  .buttonUp{background-color: #a9b4ce;}
- 
-  .actionDelete,
-  .actionCancel,
-  .actionSave,
-  .actionCal {
-    border: 2px solid grey;
-    height: 35px;
-    border-radius: 4px;
-    font-size: 120%;
-  }
-   
-  .actionDelete {background-color: red;}
-  .actionCancel {background-color: yellow;}
-  .actionSave {background-color: Green;}
-  .actionCal {background-color: linen;}
- 
-  .mainMenuButton{
-    width: 100%;
-    height: 35px;
-    font-size: 100%;
-  }
-  
-  .mainMenuButton:hover{
-    background-color: #e6efe9;
-  }
-  
-  .configButton {
-    width: 100%;
-    height: 20px;
-    font-size: 80%;
-    padding-bottom: 1px;
-  }
-  
-  .groupTab{
-    border-radius: 4px;
-    width: 100%;
-    height: 20px;
-    font-size: 80%;
-  }
-  
-  /************** Main Menu  Dropdown *************************/
-  
-  .dropdown{
-    width: 100%;
-    position: relative;
-    display: inline-block;
-  }
-  
-  .dropbtn{
-    cursor: pointer;
-  }
-  
-  .dropContent{
-    display: none;
-    position: absolute;
-    z-index: 1;
-  }
-  
-  .dropContent button{
-    height: 35px;
-    display: block;
-  }
-  
-  .dropContent button:hover{
-    background-color: #e6efe9;
-  }
-  
-  .dropdown:hover .dropContent{
-    display: block;
-  }
-  
-  .dropdown:hover .dropbtn{
-    background-color: #e6efe9;
-  }
-  
-  /********************************************************/
-  
-  #mainMenuTable{
-    width: 100%;
-    border-radius: inherit;
-  }
+/****************************** shared: menu bar, footer ******************************/
 
-  .statusDiv{
-    width: 95%;
-    margin: 1px auto 1px auto;
-    padding: 4px;
-  }
-  
-  .inputContainer{
-    width: 100%;
-    border-radius: inherit;
-  }
-  
-  #inputTable {
-    width: 100%;
-    padding: 5px 20px 10px 20px;
-    text-align: left;
-  }
-  #inputTable tr td {
-    height: 25px;
-  }
-  
-  #inputEdit #inputCalVT {
-    width:340px;
-    border: 2px solid;
-    margin: auto;
-  }
-  
-  .outputsRow{
-    vertical-align: top;
-  }
-  #inputCalCal {
-    width: 60px;
-  }
-  
-  #calConfirm{
-    width: 100px;
-    height: 40px;
-    text-align: center;
-    background-color: red;
-  }
+#iotanav { background: var(--bs-tertiary-bg); border-bottom: var(--bs-border-width) solid var(--bs-border-color); margin-bottom: 1rem; }
+@media (min-width: 768px) { #iotanav .navbar-nav { margin-left: auto; } }
+.iotanav-logo { font-weight: 700; color: var(--bs-primary); }
+[data-bs-theme=dark] .iotanav-logo { color: #81c784; }
 
-  .noDisplay {
-    display: none;
-  }
-  
-  .display {
-    display: block;
-  }
-  
-  /*   New Layout */
-  
-  #header {
-    margin: 0; border: 0; padding: 0;
-  }
-  
-  #outerContainer {
-      border: 2px solid;
-      max-width: 600px;
-      padding: 4px 4px 4px 4px;
-      border-radius: 6px;
-    }
-    
-  #mainMenu {
-    width: 100%;
-    border: 2px solid;
-    padding: 4px;
-    margin: 0px;
-  }
-  
-  #mainBody{
-    width: 100%;
-    border: 2px solid;
-    padding: 1px 4px;
-    margin: 0px;
-  }
-  
-  #copyright{
-    width: 100%;
-    height: 12px;
-    margin: 0px;
-    padding: 0px;
-  }
-  
-  #panicMessageDiv{
-    width: 100%;
-    border: 2px solid;
-    padding: 1px 4px 1px 4px;
-    margin: auto;
-  }
-  
-  #configMenu{
-    width: 100%;
-  }
-  /*  
-  .menu {
-    width: 100%;
-    border: 2px solid grey;
-    padding: 4px;
-  }
-  */
-  .body {
-    width: 100%;
-    padding: 4px;
-    margin: auto;
-  }
-  
-  .tools{
-    
-  }
-   
-/************************ Calculator ******************************/
+/* Dark theme: lighter green where green is text or an outline, so it stays readable. */
+[data-bs-theme=dark] .btn-outline-primary {
+  --bs-btn-color: #81c784; --bs-btn-border-color: #4caf50;
+  --bs-btn-hover-bg: #2e7d32; --bs-btn-hover-border-color: #4caf50; --bs-btn-hover-color: #fff;
+}
+[data-bs-theme=dark] a:not(.btn):not(.nav-link):not(.dropdown-item):not(.navbar-brand) { color: #81c784; }
+.iotanav-name:not(:empty)::before { content: "·"; margin: 0 .4rem; color: var(--bs-secondary-color); }
+.iotanav-name { font-weight: 400; }
 
-  #divCalc{
-    border: 0px;
-    margin: auto;
-  }
- 
-  #calcBody{
-    width: 400px;
-    margin: auto;
-    padding: 20px;
-    border-style: ridge;
-    border-radius: inherit;
-  }
-    
-  .calcField{text-align: right; }  
-  #calcName {width: 120px; height: 30px; margin-top: 4px; margin-bottom: 4px;}
-  #calcUnits {width: 100px; height: 30px; margin-bottom: 2px;}
- 
-  #calcDisplay{
-    font-family: console, lucida, Sans-serif;
-    background-color: whiteSmoke;
-    border: 2px;
-    border-style: ridge;
-  	padding: 5px 5px 5px 5px;
-  	font-size: 100%;
-  	text-align: left;
-  }
-  
-  #calcKeypad {
-    width: 100%; 
-    border: 2px;
-    border-style: ridge; 
-    border-radius: inherit;
-  }
-  
-  #calcActions {
-    margin-top: 5px;
-  }
-  
-  .calcButton {
-  	border: 1px;
-  	border-style: ridge;
-  	width: 80px;
-  	height: 44px;
-  	border-radius: 8px;
-  	color: white;
-  	font-size: 150%;
-  	font-weight: bold;
-  	text-align:center;
-  }
-  
-  .calcNumeric {
-    background-color: lightSlateGrey;
-  }
-  .calcClr {
-    background-color: yellow;
-    color: black;
-  }
-  .calcBack {
-    background-color: grey;
-  }
-  .calcOp {
-    background-color: darkSlateGrey;
-  }
-  .calcParen {
-    background-color: dimgrey;
-  }
-  .calcInput {
-    background-color: darkOliveGreen;
-    cursor: pointer;
-  }
-  .calcInputDropdown:hover .calcInputDropdown-content{
-    display: table;
-  } 
-  .calcInputDropdown{
-    position: relative;
-    display: inline-block;
-  }
-  .calcInputDropdown-content{
-    display: none;
-    position: absolute;
-    left: 80px;
-    top:  0px;
-    z-index: 1;
-  }
-  .calcInputDropdown-content p{
-    background-color: whiteSmoke;
-    border: 1px solid grey;
-    min-width: 80px;
-    height: 20px;
-    margin: 0px;
-    text-align: center;
-  }
-  .calcAbs {
-    background-color: lightSteelBlue;
-  }
-  
-  /******************************  end calc css *****************************/
-  
+#copyright {
+  text-align: center;
+  color: var(--bs-secondary-color);
+  padding: 1rem 0;
+}
 
-  .statusSummary{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    padding: 6px 8px;
-    margin-bottom: 6px;
-    border-radius: 4px;
-    background: #eef3f8;
-    font-size: 90%;
-  }
-  .statusSummary .warn{
-    color: #b00000;
-  }
+/****************************** main page (index.htm) ******************************/
+
+#mainBody { max-width: 60rem; margin: 0 auto; }
+
+/* Each section is a card. */
+.body, .bodyDiv, #panicMessageDiv {
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+.body .bodyDiv { border: 0; padding: 0; margin: 0; }
+#panicMessageDiv { border-color: var(--bs-danger-border-subtle); background: var(--bs-danger-bg-subtle); }
+
+.body h3, .bodyDiv h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; }
+.body h4 { font-size: 1.05rem; font-weight: 600; }
+.body p { margin-bottom: .75rem; }
+
+#mainBody table { width: 100%; margin-bottom: .5rem; }
+#mainBody td, #mainBody th { padding: .25rem .4rem; vertical-align: middle; }
+
+/* Fields the page builds without Bootstrap classes look like .form-control / .form-select. */
+#mainBody input:not([type=checkbox]):not([type=radio]):not([type=file]),
+#mainBody select,
+#mainBody textarea {
+  display: inline-block;
+  max-width: 100%;
+  min-height: calc(1.5em + .5rem + 2px);
+  padding: .25rem .5rem;
+  font-size: 1rem;
+  color: var(--bs-body-color);
+  background-color: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+#mainBody input:focus, #mainBody select:focus, #mainBody textarea:focus {
+  outline: 0;
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .25);
+}
+#mainBody input:disabled, #mainBody select:disabled { background-color: var(--bs-secondary-bg); opacity: 1; }
+#mainBody input:invalid { border-color: var(--bs-form-invalid-border-color); }
+#mainBody input[type=checkbox], #mainBody input[type=radio] {
+  width: 1.15rem; height: 1.15rem; vertical-align: middle; accent-color: var(--bs-primary);
+}
+
+/* Buttons the page builds without Bootstrap classes look like small outline buttons. */
+#mainBody button:not(.btn):not(.calcButton) {
+  padding: .2rem .6rem;
+  font-size: .9rem;
+  color: var(--bs-body-color);
+  background: var(--bs-tertiary-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+#mainBody button:not(.btn):not(.calcButton):hover { background: var(--bs-secondary-bg); }
+#mainBody button:disabled { opacity: .6; }
+
+.actionSave, .actionCancel, .actionDelete, .actionCal { min-width: 6rem; margin: .25rem .25rem .25rem 0; }
+
+/* Label / field rows (addTableRow): side by side, stacked on a phone. */
+.formRow > td:first-child { text-align: right; width: 35%; padding-right: .75rem; color: var(--bs-secondary-color); }
+@media (max-width: 575.98px) {
+  .formRow, .formRow > td, .formRow > td:first-child { display: block; width: 100%; }
+  .formRow > td:first-child { text-align: left; padding: .5rem 0 0; }
+  .formRow > td { padding: .15rem 0; }
+  /* a checkbox goes before its label, on one line */
+  .formRow:has(> td > input[type=checkbox]) { display: flex; align-items: center; gap: .6rem; padding-top: .5rem; }
+  .formRow:has(> td > input[type=checkbox]) > td { width: auto; padding: 0; }
+  .formRow:has(> td > input[type=checkbox]) > td:first-child { order: 2; }
+  #mainBody input:not([type=checkbox]):not([type=radio]) { width: 100%; }
+  .body, .bodyDiv { padding: .75rem; }
+}
+
+/* Status page: summary strip and the collapsible groups. */
+.statusSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1.25rem;
+  padding: .5rem .75rem;
+  margin-bottom: .75rem;
+  border-radius: var(--bs-border-radius);
+  background: var(--bs-tertiary-bg);
+  font-size: .9rem;
+}
+.statusSummary .warn, .warn { color: var(--bs-danger-text-emphasis); }
+
+#mainBody button.groupTab {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-weight: 600;
+  font-size: .95rem;
+  padding: .4rem .75rem;
+  margin: .5rem 0 .25rem;
+  background: var(--bs-secondary-bg);
+}
+.statusDiv { width: 100%; padding: .25rem .5rem; }
+.outputsRow { vertical-align: top; }
+
+#inputEdit #inputCalVT, #inputCalVT { max-width: 24rem; margin: auto; }
+#inputCalCal { width: 6rem; }
+#calConfirm { min-width: 6rem; }
+
+.noDisplay { display: none; }
+.display { display: block; }
+
+/****************************** calculator ******************************/
+
+#divCalc { border: 0; margin: auto; }
+#calcBody h3 { font-size: 1.25rem; font-weight: 600; text-align: center; }
+#calcBody {
+  max-width: 26rem;
+  margin: auto;
+  padding: 1rem;
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--bs-tertiary-bg);
+}
+.calcField { text-align: right; }
+#calcName { width: 8rem; margin: .25rem 0; }
+#calcUnits { width: 7rem; margin-bottom: .25rem; }
+#calcDisplay {
+  font-family: var(--bs-font-monospace);
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  padding: .4rem;
+  text-align: left;
+}
+#calcKeypad { width: 100%; }
+#calcActions { margin-top: .5rem; }
+
+.calcButton {
+  width: 100%;
+  min-width: 3.5rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: var(--bs-border-radius);
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+}
+.calcNumeric { background: #5f6b7a; }
+.calcOp { background: #34404d; }
+.calcParen { background: #6c6f73; }
+.calcBack { background: #868e96; }
+.calcClr { background: var(--bs-warning); color: #000; }
+.calcInput { background: var(--bs-primary); cursor: pointer; }
+.calcAbs { background: #7d9cc4; }
+.calcButton:hover { filter: brightness(1.1); }
+
+.calcInputDropdown { position: relative; display: inline-block; }
+.calcInputDropdown-content {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  z-index: 10;
+  max-height: 20rem;
+  overflow-y: auto;
+  background: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+.calcInputDropdown:hover .calcInputDropdown-content { display: table; }
+.calcInputDropdown-content p {
+  min-width: 6rem;
+  margin: 0;
+  padding: .2rem .5rem;
+  text-align: left;
+  cursor: pointer;
+}
+.calcInputDropdown-content p:hover { background: var(--bs-secondary-bg); }
+

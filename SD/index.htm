@@ -4,84 +4,20 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=0.86, maximum-scale=5.0, minimum-scale=0.86">
-    <title>IoTaWatt Configuration app</title>
-    <link rel="stylesheet" type="text/css" href="cnfstyle.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IoTaWatt</title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="cnfstyle.css">
+    <script src="bootstrap.min.js"></script>
+    <script src="iotanav.js"></script>
 
 </head>
 
 <body onload="setup()">
 
-    <div id="outerContainer" class="color_outer">
-        <h3 id="heading">IoTaWatt Power Monitor</h3>
+    <nav id="iotanav"></nav>
 
-        <div id="mainMenu" class="menu color_menu" display="block">
-
-            <!-- ************************************************************************************************************************
-                                                      MAIN MENU BUTTONS
-         *********************************************************************************************************************-->
-
-            <table id="bigIdeasTable">
-                <tr>
-                    <th width="50%"></th>
-                    <th width="50%"></th>
-                </tr>
-                <tr>
-                    <td class="dropdown">
-                        <button id="setupButton" class="mainMenuButton buttonUp dropbtn" title="Select setup category">Setup</button>
-                        <span class="dropContent">
-            <button class="mainMenuButton" onclick="mainMenuButton(this,configDevice)"
-                title="Specify device name, time-zone, and auto-update class">Device</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,configInputs)"
-                title="Specify the VTs and CTs that are used">Inputs</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,configOutputs)"
-                title="Define output values for status display and local graphs">Outputs</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,configIntegrators)"
-                title="Define Integrators to develop import/export values">Integrators</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,buildWebServer)"
-                title="Specify data uploader(s) to external servers">Data Uploaders</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,setProxy)" 
-                title="Specify optional proxy server for HTTPS">HTTPS Proxy Server</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,setPasswords)"
-                title="Set/Reset optional access passwords">Passwords</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,configBurden)"
-                title="Set new values if stock resistors are modified/removed">Burden Resistors</button>
-          </span>
-                    </td>
-                    <td><button class="mainMenuButton buttonUp" onclick="mainMenuButton(this,statusBegin)" title="Display current measurements, outputs and device status">Status</button></td>
-                </tr>
-                <tr>
-                    <td class="dropdown">
-                        <button id="toolsButton" class="mainMenuButton buttonUp dropbtn" title="Select from the following tools">Tools</button>
-                        <span class="dropContent">
-            <button class="mainMenuButton" onclick="mainMenuButton(this,loadEdit)"
-                title="manage and edit files on the SDcard">File Manager and Editor</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,showMsgs)"
-                title="View recent entries in the message log">Message Log</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,toolsWiFi)">WIFi</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,toolsRestart)"
-                title="Restart the IoTaWatt">Restart</button>
-                
-       <!-- <button class="mainMenuButton" onclick="mainMenuButton(this,toolsDatalogs)">Datalogs</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,toolsUpdate)">Software Update</button>
-            <button class="mainMenuButton" onclick="mainMenuButton(this,toolsPhase)">Phase Measurement</button> -->
-            
-          </span>
-                    </td>
-                    <td>
-                        <span class="dropdown">
-            <button id="dataButton" class="mainMenuButton buttonUp dropbtn"
-              title="Graphically visualize and compare accumulated data">Data</button>
-            <span class="dropContent">
-              <button class="mainMenuButton" onclick="mainMenuButton(this,loadGraph2)"
-                  title="Enhanced graph utility">Graph+</button>
-              
-            </span>
-                        </span>
-                    </td>
-                </tr>
-            </table>
-        </div>
+    <main id="outerContainer" class="container-xl">
 
         <!-- ************************************************************************************************************************
                                                       PANIC MESSAGES
@@ -109,8 +45,8 @@
                 <h3>Configure IoTaWatt Device</h3>
                 <table id="deviceTable"></table>
                 <p>
-                    <button class="actionCancel" id="deviceCancel" onclick="deviceCancel()">cancel</button>
-                    <button class="actionSave" id="deviceSave" onclick="deviceSave()">save</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="deviceCancel" onclick="deviceCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="deviceSave" onclick="deviceSave()">save</button>
                 </p>
             </div>
 
@@ -132,9 +68,9 @@
                 <h3 id="inputChannel"></h3>
                 <table id="inputEditTable"></table>
                 <div>
-                    <button class="actionDelete" id="inputEditDelete" onclick="inputEditDelete()">delete</button>
-                    <button class="actionCancel" id="inputEditCancel" onclick="inputEditCancel()">cancel</button>
-                    <button class="actionSave" id="inputEditSave" onclick="inputEditSave()">save</button>
+                    <button class="btn btn-outline-danger actionDelete" id="inputEditDelete" onclick="inputEditDelete()">delete</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="inputEditCancel" onclick="inputEditCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="inputEditSave" onclick="inputEditSave()">save</button>
                 </div>
             </div>
 
@@ -145,8 +81,8 @@
                     <span>calibration factor: </span>
                     <input id="inputCalCal" type="number" onchange="inputCalCal(this)" min="5" max="300" step="0.01" width="100px"></p>
                 <p>
-                    <button class="actionCancel" onclick="calVTexit(this)">cancel</button>
-                    <button class="actionSave" onclick="calVTsave(this)">save</button>
+                    <button class="btn btn-outline-secondary actionCancel" onclick="calVTexit(this)">cancel</button>
+                    <button class="btn btn-primary actionSave" onclick="calVTsave(this)">save</button>
                 </p>
                 <p>Using a voltmeter to display the AC line voltage, adjust the calibration factor until the displayed voltage reasonably matches the voltmeter reading. Click save to update the channel with the new calibration factor.</p>
             </div>
@@ -178,8 +114,8 @@
                 <p>For the benefit of advanced users that have a need to remove or change the factory resistors, this menu has been provided so that a changed value can be specified and IoTaWatt can calculate the correct current using the new value.</p>
                 <table id="burdenTable"></table>
                 <p>
-                    <button class="actionCancel" id="burdenCancel" onclick="burdenCancel()">cancel</button>
-                    <button class="actionSave" id="burdenSave" onclick="burdenSave()">save</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="burdenCancel" onclick="burdenCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="burdenSave" onclick="burdenSave()">save</button>
                 </p>
             </div>
 
@@ -207,9 +143,9 @@
                 </p>
                 <table id="pwdTable"></table>
                 <p>
-                    <button class="actionCancel" id="pwdCancel" onclick="pwdCancel()">cancel</button>
-                    <button class="actionSave" id="pwdSave" onclick="pwdSave()">save</button>
-                    <button class="actionSave" id="pwdCheck" onclick="pwdValidate()">Validate Current Password</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="pwdCancel" onclick="pwdCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="pwdSave" onclick="pwdSave()">save</button>
+                    <button class="btn btn-primary actionSave" id="pwdCheck" onclick="pwdValidate()">Validate Current Password</button>
                 </p>
             </div>
 
@@ -229,9 +165,9 @@
                     <table id="serverOutputs"></table>
                 </div>
                 <p>
-                    <button class="actionDelete" id="serverDelete">delete</button>
-                    <button class="actionCancel" id="serverCancel" onclick="serverCancel()">cancel</button>
-                    <button class="actionSave" id="serverSave" onclick="serverSave()">save</button>
+                    <button class="btn btn-outline-danger actionDelete" id="serverDelete">delete</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="serverCancel" onclick="serverCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="serverSave" onclick="serverSave()">save</button>
                 </p>
             </div>
             
@@ -258,9 +194,9 @@
               sources are writing to a single database.</p>
               <p>Tag-values can be a fixed string, or one of the variables $device, $name, $units</p>
               <p>
-                <button class="actionDelete" id="influxTagDelete">delete</button>
-                <button class="actionCancel" id="influxTagCancel" onclick="influxTagCancel()">cancel</button>
-                <button class="actionSave" id="influxTagSave">save</button>
+                <button class="btn btn-outline-danger actionDelete" id="influxTagDelete">delete</button>
+                <button class="btn btn-outline-secondary actionCancel" id="influxTagCancel" onclick="influxTagCancel()">cancel</button>
+                <button class="btn btn-primary actionSave" id="influxTagSave">save</button>
               </p>
             </div>
 
@@ -273,9 +209,9 @@
                 </p>
                 Proxy URL <input id="proxyURL" oninput="validateProxy()" size="48">
                 <p>
-                    <button class="actionDelete" id="proxyDelete" onclick="proxyDelete()">delete</button>
-                    <button class="actionCancel" id="proxyCancel" onclick="proxyCancel()">cancel</button>
-                    <button class="actionSave" id="proxySave" onclick="proxySave()">save</button>
+                    <button class="btn btn-outline-danger actionDelete" id="proxyDelete" onclick="proxyDelete()">delete</button>
+                    <button class="btn btn-outline-secondary actionCancel" id="proxyCancel" onclick="proxyCancel()">cancel</button>
+                    <button class="btn btn-primary actionSave" id="proxySave" onclick="proxySave()">save</button>
                 </p>
             </div>
 
@@ -351,8 +287,8 @@
                     Use this tool to permanently disconnect from the current WiFi network.<br>
                 </p>
                 <h3 id="WiFiMsg"></h3>
-                <button id="WiFiButton" class="actionDelete" onclick="sendDisconnect()">Disconnect</button>
-                <button class="actionCancel" onclick="currentBodyPop()">cancel</button>
+                <button id="WiFiButton" class="btn btn-outline-danger actionDelete" onclick="sendDisconnect()">Disconnect</button>
+                <button class="btn btn-outline-secondary actionCancel" onclick="currentBodyPop()">cancel</button>
             </div>
 
             <!-- ****************************** Restart **********************************-->
@@ -394,8 +330,8 @@
                     <div id="logsConfirm" style="display:none">
                         <h3 id="logsMsg"></h3>
                         <p>Click DELETE to confirm.</p>
-                        <button class="actionCancel" onclick="toolsDataLogsCancel()">Cancel</button>
-                        <button id="logsConfirm" class="actionDelete">DELETE</button>
+                        <button class="btn btn-outline-secondary actionCancel" onclick="toolsDataLogsCancel()">Cancel</button>
+                        <button id="logsConfirm" class="btn btn-outline-danger actionDelete">DELETE</button>
                     </div>
                 </div>
             </div>
@@ -474,18 +410,16 @@
                         </tr>
                     </table>
                     <div id="calcActions">
-                        <button class="actionDelete" id="calcDelete" onclick="calcDelete()">delete</button>
-                        <button class="actionCancel" id="calcCancel" onclick="calcCancel();">cancel</button>
-                        <button class="actionSave" id="calcSave" onclick="calcSave()">save</button>
+                        <button class="btn btn-outline-danger actionDelete" id="calcDelete" onclick="calcDelete()">delete</button>
+                        <button class="btn btn-outline-secondary actionCancel" id="calcCancel" onclick="calcCancel();">cancel</button>
+                        <button class="btn btn-primary actionSave" id="calcSave" onclick="calcSave()">save</button>
                     </div>
                 </div>
             </div>
         </div>
         <!-- mainBody -->
-        <div id="copyright">
-            <p style="text-align:center; padding:0px; margin:0px"><small>&#xA9 2021 IoTaWatt, Inc.</small></p>
-        </div>
-    </div>
+        <footer id="copyright"><small>&#xA9; 2021 IoTaWatt, Inc.</small></footer>
+    </main>
     <!-- outerContainer -->
 
     <script>
@@ -1253,7 +1187,7 @@
                 if (complete) {
                     inputCal = addTableRow(table, "", "inputCal", "button");
                     inputCal.innerHTML = "calibrate";
-                    inputCal.setAttribute("class", "actionCal");
+                    inputCal.setAttribute("class", "btn btn-outline-primary actionCal");
                     inputCal.setAttribute("onclick", "calVTvoltage();");
                 }
             }
@@ -1342,9 +1276,9 @@
 
         function addTableRow(table, text, id, elementType, size) {
             var newRow = table.insertRow(-1);
+            newRow.className = "formRow";
             var column = newRow.insertCell(-1);
             column.innerHTML = text;
-            column.setAttribute("align", "right");
             column = newRow.insertCell(-1);
             var newInput = document.createElement(elementType);
             column.appendChild(newInput);
@@ -1355,9 +1289,9 @@
 
         function addTableText(table, col1Text, col2Text) {
             var newRow = table.insertRow(-1);
+            newRow.className = "formRow";
             var col1 = newRow.insertCell(-1);
             col1.innerHTML = col1Text;
-            col1.setAttribute("align", "right");
             col2 = newRow.insertCell(-1);
             col2.innerHTML = col2Text;
             return col2;
@@ -3191,6 +3125,7 @@
             editing = false;
             while (currentBody.length > 0) currentBodyPop();
             hide("mainBody");
+            iotanav.home();
         }
 
         function loadGraph2() {
@@ -3242,9 +3177,9 @@
                     noConfig = false;
                     checkConfig();
                     document.title = config.device.name;
-                    EbyId("heading").innerHTML = config.device.name + " Power Monitor";
+                    iotanav.setName(config.device.name);
                     if (callback !== undefined) callback();
-                    EbyId("mainMenu").style.display = "block";
+                    iotanav.configLoaded();
                 }
             })
         }
@@ -3253,6 +3188,7 @@
             EbyId("panicList").innerHTML = "<p>" + message + "</p>";
             EbyId("panicMessageDiv").style.display = "block";
             noConfig = true;
+            if (window.iotanav) iotanav.configFailed();     // Status and Setup need the configuration
         }
 
         // The configuration check (checkConfig) needs the tables, so load them first.
