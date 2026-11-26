@@ -10,6 +10,7 @@
 #ifndef IOTAWATT_VERSION
 #define IOTAWATT_VERSION "02_08_04"
 #endif
+#define IOTAWATT_PRODUCT "IoTaWatt Reimagined"
 #define IOTA_SYSTEM_DIR       "/iotawatt/"            // as IotaWatt.h
 #define IOTA_CURRENT_LOG_PATH "/iotawatt/iotalog.log"
 #define IOTA_HISTORY_LOG_PATH "/iotawatt/histlog.log"

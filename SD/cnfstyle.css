@@ -18,6 +18,7 @@
 [data-bs-theme=dark] a:not(.btn):not(.nav-link):not(.dropdown-item):not(.navbar-brand) { color: #81c784; }
 .iotanav-name:not(:empty)::before { content: "·"; margin: 0 .4rem; color: var(--bs-secondary-color); }
 .iotanav-name { font-weight: 400; }
+.iotanav-edition { font-weight: 400; font-size: .8em; margin-left: .35rem; color: var(--bs-secondary-color); }
 
 #copyright {
   text-align: center;

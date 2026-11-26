@@ -95,6 +95,7 @@
         var box = el("div", { "class": "container-fluid" });
         var brand = el("a", { "class": "navbar-brand", href: "index.htm" });
         brand.appendChild(el("span", { "class": "iotanav-logo" }, "IoTaWatt"));
+        brand.appendChild(el("span", { "class": "iotanav-edition" }, "Reimagined"));
         brand.appendChild(el("span", { id: "iotanavName", "class": "iotanav-name" }));
         box.appendChild(brand);
         var toggler = el("button", { "class": "navbar-toggler", type: "button", "data-bs-toggle": "collapse",
@@ -132,6 +133,12 @@
     function route() { open(location.hash.replace(/^#/, "")); }
 
     window.iotanav = {
+        // A firmware version as people read it: "03_00_00" -> "3.0.0", "03_00_d7" -> "3.0-d7".
+        version: function (v) {
+            var m = /^(\d\d)_(\d\d)_(\w\w)$/.exec(v || "");
+            if (!m) return v || "";
+            return +m[1] + "." + +m[2] + (/^\d\d$/.test(m[3]) ? "." + +m[3] : "-" + m[3]);
+        },
         setName: function (name) {
             var n = document.getElementById("iotanavName");
             if (n) n.textContent = name || "";

@@ -36,11 +36,16 @@ uint32_t updater(struct serviceBlock* _serviceBlock) {
       if( ! updateClass){
         updateClass = charstar("NONE");
       } 
-      log("Updater: service started. Auto-update class is %s", updateClass);
-      _updateClass = charstar(updateClass);
       tableVersion = getTablesVersion();
-      state = checkAutoUpdate;
-      return 1;
+
+            // IoTaWatt Reimagined never replaces itself with an official IoTaWatt release (which would
+            // silently undo it): the service ends here. Update from Tools, Firmware update (README.md).
+
+      if(strcmp(updateClass, "NONE") != 0){
+        log("Updater: %s doesn't install official IoTaWatt releases automatically: auto-update class %s ignored.",
+            IOTAWATT_PRODUCT, updateClass);
+      }
+      return 0;
     }
 
     case checkAutoUpdate: {

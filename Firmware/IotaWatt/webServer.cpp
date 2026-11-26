@@ -570,6 +570,7 @@ void handleStatus(){
       stats[F("stack")] = ESP.getFreeHeap();
       trace(T_WEB,14);
       stats[F("version")] = IOTAWATT_VERSION;
+      stats[F("product")] = IOTAWATT_PRODUCT;
       trace(T_WEB,14);
       stats[F("frequency")] = frequency;
       trace(T_WEB,14);

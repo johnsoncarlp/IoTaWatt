@@ -58,6 +58,7 @@ static void test_status_stats_wifi_passwords_device(void){
   handleStatus();
   JsonDocument d = lastJson();
   TEST_ASSERT_FLOAT_WITHIN(0.001, 643.25f, d["stats"]["cyclerate"].as<float>());
+  TEST_ASSERT_EQUAL_STRING("IoTaWatt Reimagined", d["stats"]["product"].as<const char*>());
   TEST_ASSERT_EQUAL_UINT32(4185, d["stats"]["runseconds"].as<uint32_t>());
   TEST_ASSERT_EQUAL_STRING(IOTAWATT_VERSION, d["stats"]["version"].as<const char*>());
   TEST_ASSERT_EQUAL_STRING("TestNet", d["wifi"]["SSID"].as<const char*>());

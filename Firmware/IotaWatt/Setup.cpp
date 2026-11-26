@@ -139,7 +139,7 @@ EE = nullptr;
 
 //**************************************** Display software version *********************************
 
-log("IoTaWatt %d.%s, Firmware version %s", deviceMajorVersion, deviceMajorVersion < 5 ? "x" : String(deviceMinorVersion).c_str(), IOTAWATT_VERSION);
+log("IoTaWatt %d.%s, %s firmware version %s", deviceMajorVersion, deviceMajorVersion < 5 ? "x" : String(deviceMinorVersion).c_str(), IOTAWATT_PRODUCT, IOTAWATT_VERSION);
 
 //**************************************** Install any pending updates ******************************
 

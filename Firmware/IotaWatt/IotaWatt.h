@@ -19,8 +19,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.   
 ***********************************************************************************/
 #ifndef IOTAWATT_VERSION                    // Overridable from the build (exactly 8 chars: release file format)
-#define IOTAWATT_VERSION "02_08_04"
+#define IOTAWATT_VERSION "03_00_00"                // IoTaWatt Reimagined 3.0.0 (shown as 3.0.0)
 #endif
+#define IOTAWATT_PRODUCT "IoTaWatt Reimagined"   // this firmware: a fork of IoTaWatt (README.md), not an official release
 #define DEVICE_NAME "IotaWatt"
 
 #define PRINT(txt,val) Serial.print(txt); Serial.print(val);      // Quick debug aids
