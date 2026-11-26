@@ -85,10 +85,7 @@ uint32_t Uploader::dispatch(struct serviceBlock *serviceBlock)
 
 void Uploader::stop(){
     log("%s: stopped, Last post %s", _id, localDateString(_lastSent).c_str());
-    delete oldRecord;
-    oldRecord = nullptr;
-    delete newRecord;
-    newRecord = nullptr;
+    freeRecords();
     // delete _request;
     // _request = nullptr;
     reqData.flush();
@@ -396,3 +393,33 @@ bool Uploader::config(const char *jsonConfig)
 }
 
 bool Uploader::configCB(JsonObject &) { return true; };
+
+/*****************************************************************************************
+ *          Log records for the write states
+ * **************************************************************************************/
+bool Uploader::dataForPost(){
+    return Current_log.lastKey() >= _lastSent + _interval + (_interval * _bulkSend);
+}
+
+void Uploader::openRecords(){
+    if(oldRecord) return;
+    oldRecord = new IotaLogRecord;
+    newRecord = new IotaLogRecord;
+    newRecord->UNIXtime = _lastSent + _interval;
+    Current_log.readKey(newRecord);
+}
+
+void Uploader::nextRecord(){
+    IotaLogRecord *swap = oldRecord;
+    oldRecord = newRecord;
+    newRecord = swap;
+    newRecord->UNIXtime = oldRecord->UNIXtime + _interval;
+    Current_log.readKey(newRecord);
+}
+
+void Uploader::freeRecords(){
+    delete oldRecord;
+    oldRecord = nullptr;
+    delete newRecord;
+    newRecord = nullptr;
+}

@@ -99,6 +99,13 @@ class Uploader
         IotaLogRecord *newRecord;
         IotaLogRecord *oldRecord;
 
+                // The two log records a write state steps through (oldRecord, newRecord).
+
+        bool dataForPost();             // enough is logged for the next post (with bulk send)
+        void openRecords();             // allocate them if needed; newRecord = the next interval to send
+        void nextRecord();              // oldRecord = newRecord, read the following interval into newRecord
+        void freeRecords();
+
              // Parameters supplied to HTTPost                
 
         struct POSTrequest{

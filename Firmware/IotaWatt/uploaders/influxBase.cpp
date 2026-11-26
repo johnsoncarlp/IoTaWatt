@@ -24,13 +24,8 @@ uint32_t influxBase::handle_write_s(){
 
     // If not enough data to post, set wait and return.
 
-    if(Current_log.lastKey() < (_lastSent + _interval + (_interval * _bulkSend))){
-        if(oldRecord){
-            delete oldRecord;
-            oldRecord = nullptr;
-            delete newRecord;
-            newRecord = nullptr;
-        }
+    if( ! dataForPost()){
+        freeRecords();
         return UTCtime() + 1;
     }
 
@@ -39,10 +34,7 @@ uint32_t influxBase::handle_write_s(){
     trace(_traceModule,60);
     if(! oldRecord){
         trace(_traceModule,61);
-        oldRecord = new IotaLogRecord;
-        newRecord = new IotaLogRecord;
-        newRecord->UNIXtime = _lastSent + _interval;
-        Current_log.readKey(newRecord);
+        openRecords();
     }
 
     // Build post transaction from datalog records.
@@ -53,14 +45,10 @@ uint32_t influxBase::handle_write_s(){
             return 10;
         }
         
-        // Swap newRecord top oldRecord, read next into newRecord.
+        // Next interval.
 
         trace(_traceModule,60);
-        IotaLogRecord *swap = oldRecord;
-        oldRecord = newRecord;
-        newRecord = swap;
-        newRecord->UNIXtime = oldRecord->UNIXtime + _interval;
-        Current_log.readKey(newRecord);
+        nextRecord();
 
         // Compute the time difference between log entries.
         // If zero, don't bother.
@@ -130,10 +118,7 @@ uint32_t influxBase::handle_write_s(){
         reqData.printf_P(PSTR(" value=%d %d\n"), ESP.getFreeHeap(), UTCtime());
     }       
 
-    delete oldRecord;
-    oldRecord = nullptr;
-    delete newRecord;
-    newRecord = nullptr; 
+    freeRecords(); 
 
     // Initiate HTTP post.
 
