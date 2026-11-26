@@ -79,8 +79,11 @@ query without a header can't carry that marker, so it is cut off instead (the cl
 
 The Emoncms-compatible interface (used by Emoncms-style graph apps). ``list.json`` returns the feeds:
 per input or output ``id`` (``IV``, ``IP`` or ``IE`` plus the name: voltage, power, energy), ``tag``,
-``name``. ``data.json?id=<id>&start=<ms>&end=<ms>&interval=<s>`` (or ``mode=daily|weekly|monthly|
-yearly``) returns ``[[time_ms, value], ...]``.
+``name``. ``data.json?id=<id>[,<id>...]&start=<ms>&end=<ms>&interval=<s>`` (or ``mode=daily|weekly|
+monthly|yearly``) returns one array per interval, from ``start``, with a value per id in the order
+asked (at most 64 ids; the rows carry no time). Times outside the
+data log (before its start, or past its last entry, such as the last point of a range ending now) give
+``null``: the original firmware repeated the last value there.
 
 /graph/getallplus
 .................
