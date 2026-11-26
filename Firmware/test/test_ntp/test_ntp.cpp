@@ -138,6 +138,18 @@ static void test_fallback_skips_empty_sources(void){
   TEST_ASSERT_EQUAL_UINT8(ntpDefault, from);
 }
 
+// B73: a sync is due once the interval has passed since the last one; a shorter interval set
+// meanwhile applies at once (the service asks every minute).
+static void test_sync_due(void){
+  const uint32_t t = 1800000000;
+  TEST_ASSERT_TRUE(ntpSyncDue(t, 0, 86400));                     // never synced
+  TEST_ASSERT_FALSE(ntpSyncDue(t + 3599, t, 3600));
+  TEST_ASSERT_TRUE(ntpSyncDue(t + 3600, t, 3600));
+  TEST_ASSERT_FALSE(ntpSyncDue(t + 600, t, 86400));             // daily ...
+  TEST_ASSERT_TRUE(ntpSyncDue(t + 600, t, 300));                 // ... changed to 5 minutes: due now
+  TEST_ASSERT_TRUE(ntpSyncDue(5, 0xFFFFFF00u, 3600) == false);   // across the uint32 wrap: 261 s
+}
+
 int main(int, char**){
   UNITY_BEGIN();
   RUN_TEST(test_accepts_2018_through_2106);
@@ -151,5 +163,6 @@ int main(int, char**){
   RUN_TEST(test_overlong_and_bad_names);
   RUN_TEST(test_fallback_when_a_source_never_answers);
   RUN_TEST(test_fallback_skips_empty_sources);
+  RUN_TEST(test_sync_due);
   return UNITY_END();
 }

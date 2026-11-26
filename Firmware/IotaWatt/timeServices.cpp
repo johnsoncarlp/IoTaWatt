@@ -68,6 +68,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   static uint8_t  lastSource = 0;
   static uint8_t  fromSource = ntpConfigured;   // ntpFallback(): sources tried from this one on
   static uint8_t  failures = 0;
+  static uint32_t lastSync = 0;                 // last successful sync (ntpSyncDue)
   static uint8_t  source = 0;
   uint32_t sendMillis = 0;
   uint32_t origin_sec = 0;
@@ -96,6 +97,10 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   if(UTCtime() - lastNTPupdate > 86400UL){ 
     log("timeSync: No time update in last 24 hours.");
     lastNTPupdate = UTCtime();
+  }
+
+  if( ! ntpSyncDue(UTCtime(), lastSync, timeSynchInterval)){
+    return UTCtime() + 60;                      // a changed interval applies within a minute (B73)
   }
 
   if( ! WiFi.isConnected()){ 
@@ -210,6 +215,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
   timeRefNTP = current_ts_sec - 1;
   timeRefMs = recvMillis - 1000 - current_ts_frac;
   lastNTPupdate = UTCtime();
+  lastSync = UTCtime();
  
         // If RTC not running, set it.
 
@@ -254,7 +260,7 @@ uint32_t timeSync(struct serviceBlock* _serviceBlock) {
           // Go back to sleep.
 
   trace(T_timeSync, 14);
-  return UTCtime() + timeSynchInterval;    
+  return UTCtime() + 60;                        // then ntpSyncDue() decides, each minute
 }
 
 //  This can be a little mind-bogling. The ESP stores words in little-endian format,

@@ -91,4 +91,15 @@ inline uint8_t ntpFallback(uint8_t from, uint8_t used, uint8_t& failures, bool o
   return used < ntpDefault ? used + 1 : ntpConfigured;
 }
 
+/*******************************************************************************************************
+ * ntpSyncDue(now, lastSync, interval) - is the next time sync due? (B73)
+ *
+ * timeSync wakes every minute after a successful sync and asks again once `interval` seconds have
+ * passed since it, so a changed "ntpinterval" applies within a minute rather than after the old
+ * interval (up to a day). lastSync 0 = never synced: due.
+ ******************************************************************************************************/
+inline bool ntpSyncDue(uint32_t now, uint32_t lastSync, uint32_t interval){
+  return lastSync == 0 || now - lastSync >= interval;
+}
+
 #endif
