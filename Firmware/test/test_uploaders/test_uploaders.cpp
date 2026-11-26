@@ -232,6 +232,43 @@ static void test_influxdb_v2_query_and_write(void){
   delete u;
 }
 
+// The shared influxBase pieces through both uploaders: the optional "heap" line (with the tag set),
+// and, for v2, a URL given with its /api/v2 path.
+static void test_influx_heap_line_both_versions(void){
+  std::string token(88, 'A');
+  for(int v2 = 0; v2 < 2; v2++){
+    hostHttpLog.clear(); hostHttpReplies.clear(); hostServices.clear();
+    std::string cfg = v2
+      ? std::string("{\"type\":\"influxdb2\",\"revision\":1,\"url\":\"http://influx2.lan:8086/api/v2\",\"bucket\":\"energy\","
+        "\"orgid\":\"0123456789abcdef\",\"authtoken\":\"") + token + "\","
+      : std::string("{\"type\":\"influxdb\",\"revision\":1,\"url\":\"http://influx.lan:8086\",\"database\":\"iotawatt\",");
+    cfg += std::string("\"postInterval\":10,\"bulksend\":1,\"heap\":true,\"measurement\":\"$name\",\"fieldkey\":\"value\","
+      "\"tagset\":[{\"key\":\"device\",\"value\":\"$device\"}],\"outputs\":") + OUTPUTS + "}";
+    Uploader* u = v2 ? (Uploader*)new influxDB2_uploader : (Uploader*)new influxDB_uploader;
+    TEST_ASSERT_TRUE(u->config(cfg.c_str()));
+    uint32_t resume = T0 + 3600;
+    if(v2){
+      char csv[200]; snprintf(csv, sizeof csv, ",result,table,_measurement,_time\r\n,_result,0,Main,%u\r\n", resume);
+      hostHttpReplies.push_back({200, csv});
+    } else {
+      for(const char* m : {"Main", "Volts"}){
+        char r[256]; snprintf(r, sizeof r, "{\"results\":[{\"statement_id\":0,\"series\":[{\"name\":\"%s\",\"columns\":[\"time\",\"last\"],\"values\":[[%u,1]]}]}]}", m, resume);
+        hostHttpReplies.push_back({200, r});
+      }
+    }
+    hostHttpReplies.push_back({204, ""});
+    runUntil(hostServices.back(), v2 ? 2 : 3);
+    const HostHttpRequest& w = hostHttpLog.back();
+    TEST_ASSERT_EQUAL_STRING(v2 ? "http://influx2.lan:8086/api/v2/write?precision=s&orgID=0123456789abcdef&bucket=energy"
+                                : "http://influx.lan:8086/write?precision=s&db=iotawatt", w.url.c_str());
+    auto L = lines(w.body);
+    TEST_ASSERT_TRUE(L.size() >= 3);
+    char want[64]; snprintf(want, sizeof want, "heap,device=IotaWatt value=%u ", ESP.getFreeHeap());
+    TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE(want, L.back().c_str(), strlen(want), L.back().c_str());
+    delete u;
+  }
+}
+
 static void test_influxdb_v2_config_validation(void){
   const char* bad[] = {
     "\"bucket\":\"\",\"orgid\":\"0123456789abcdef\",\"authtoken\":\"T88\"",
@@ -469,6 +506,7 @@ int main(int, char**){
   RUN_TEST(test_influxdb_v1_auth_failure_stops);
   RUN_TEST(test_influxdb_v1_empty_database_starts_at_log_end);
   RUN_TEST(test_influxdb_v2_query_and_write);
+  RUN_TEST(test_influx_heap_line_both_versions);
   RUN_TEST(test_influxdb_v2_config_validation);
   RUN_TEST(test_emoncms_plaintext);
   RUN_TEST(test_emoncms_encrypted);
