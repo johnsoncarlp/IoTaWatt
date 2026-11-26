@@ -154,6 +154,22 @@ void returnFail(String msg, int HTTPcode) {
   server.send(HTTPcode, txtPlain_P, msg + "\r\n");
 }
 
+        // Content type from the file name's extension; fallback when it isn't one of these.
+        // The table is in flash (PROGMEM): on the ESP8266 plain string constants take RAM.
+
+static const struct { char ext[5]; char type[23]; } contentTypes[] PROGMEM = {
+  {".htm", "text/html"}, {".css", "text/css"}, {".js", "application/javascript"},
+  {".png", "image/png"}, {".gif", "image/gif"}, {".jpg", "image/jpeg"}, {".ico", "image/x-icon"},
+  {".xml", "text/xml"}, {".pdf", "application/pdf"}, {".zip", "application/zip"}
+};
+
+static String contentType(const String& path, const String& fallback){
+  for(auto& t : contentTypes){
+    if(path.endsWith(String(FPSTR(t.ext)))) return String(FPSTR(t.type));
+  }
+  return fallback;
+}
+
 bool loadFromSdCard(String path){
   trace(T_WEB,13);
   if( ! path.startsWith("/")) path = '/' + path;
@@ -164,16 +180,7 @@ bool loadFromSdCard(String path){
   }
   
   if(path.endsWith(F(".src"))) path = path.substring(0, path.lastIndexOf("."));
-  else if(path.endsWith(F(".htm"))) dataType = F("text/html");
-  else if(path.endsWith(F(".css"))) dataType = F("text/css");
-  else if(path.endsWith(F(".js")))  dataType = F("application/javascript");
-  else if(path.endsWith(F(".png"))) dataType = F("image/png");
-  else if(path.endsWith(F(".gif"))) dataType = F("image/gif");
-  else if(path.endsWith(F(".jpg"))) dataType = F("image/jpeg");
-  else if(path.endsWith(F(".ico"))) dataType = F("image/x-icon");
-  else if(path.endsWith(F(".xml"))) dataType = F("text/xml");
-  else if(path.endsWith(F(".pdf"))) dataType = F("application/pdf");
-  else if(path.endsWith(F(".zip"))) dataType = F("application/zip");
+  else dataType = contentType(path, dataType);
 
   if(path.startsWith(F("/esp_spiffs/"))){
     return loadFromSpiffs(path.substring(11), dataType);
