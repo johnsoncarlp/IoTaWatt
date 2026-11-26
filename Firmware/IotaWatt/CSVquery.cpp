@@ -424,9 +424,6 @@ const char*  CSVquery::unitstr(units units){
 bool    CSVquery::isJson(){
     return _format == formatJson;
 }
-bool    CSVquery::isCSV(){
-    return _format == formatCSV;
-}
 
 String  CSVquery::failReason(){
     return _failReason.length() ? _failReason : "unspecified";

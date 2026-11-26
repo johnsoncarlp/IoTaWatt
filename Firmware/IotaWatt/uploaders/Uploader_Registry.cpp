@@ -128,10 +128,5 @@ char** get_uploader_list(){
     return uploaderNames;
 }
 
-int get_uploaderCount(){
-    trace(T_uploaderRegistry, 50,0);
-    return uploaderCount;
-}
-
 
 

@@ -14,7 +14,6 @@ char* charstar(const char str);                     // return a pointer.
 char* charstar(const __FlashStringHelper *str, const char *str2 = nullptr);
 
 String hashName(const char* name);                  // hash the input string to an eight character base 64 string
-String formatHex(uint32_t data);                    // Convert the input to a String of hex digits
 String bin2hex(const uint8_t* in, size_t len);
 void   hex2bin(uint8_t* out, const char* in, size_t len); 
 

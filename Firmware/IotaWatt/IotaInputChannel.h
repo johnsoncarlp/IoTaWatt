@@ -86,7 +86,6 @@ class IotaInputChannel {
 
     void    reset();
     void    ageBuckets(uint32_t timeNow);
-    void    setVoltage(float volts, float Hz);
     void    setVoltage(float volts);
     void    setHz(float Hz);
     double  getHz() { return dataBucket.Hz; };

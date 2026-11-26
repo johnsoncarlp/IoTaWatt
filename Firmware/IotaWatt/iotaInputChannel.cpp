@@ -31,12 +31,6 @@ void IotaInputChannel::ageBuckets(uint32_t timeNow) {
     }    
 }
 
-void IotaInputChannel::setVoltage(float volts, float Hz){
-    if(_type != channelTypeVoltage) return;
-    dataBucket.Hz = Hz;	
-    setVoltage(volts);
-}
-
 void IotaInputChannel::setVoltage(float volts){
     if(_type != channelTypeVoltage) return;
     dataBucket.volts = volts;

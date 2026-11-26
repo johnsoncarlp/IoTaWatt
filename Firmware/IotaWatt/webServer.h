@@ -27,7 +27,6 @@ void deleteRecursive(String path);
 void handleDelete();
 void handleCreate();
 void printDirectory();
-void printSpiffsDirectory(String path);
 void handleNotFound();
 void handleStatus();
 void handleVcal();

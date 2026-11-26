@@ -77,16 +77,6 @@ String hashName(const char* name){
 /**************************************************************************************************
  * Convert the input to a String of hex digits.
  * ************************************************************************************************/
-String formatHex(uint32_t data){
-  char str[9];                              // was an empty String: str[i] = ... past its end wrote nothing
-  uint32_t _data = data;
-  for(int i=7; i>=0; i--){
-    str[i] = pgm_read_byte(hexcodes_P + (_data % 16));
-    _data /= 16;
-  }
-  str[8] = 0;
-  return String(str);
-}
 
 String bin2hex(const uint8_t* in, size_t len){
   char* hexcodes = new char[17];

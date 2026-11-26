@@ -463,31 +463,6 @@ void printDirectory() {
   server.send(200, appJson_P, response);
 }
 
-void printSpiffsDirectory(String path) {
-  trace(T_WEB,7); 
-  if(path != "/" && !SD.exists((char *)path.c_str())) return returnFail("BAD PATH");
-  File dir = SD.open((char *)path.c_str());
-  path = String();
-  if(!dir.isDirectory()){
-    dir.close();
-    return returnFail("NOT DIR");
-  }
-  JsonDocument jsonDoc;
-  JsonArray array = jsonDoc.to<JsonArray>();
-  dir.rewindDirectory();
-  File entry;
-  while(entry = dir.openNextFile()){
-    JsonObject object = array.add<JsonObject>();
-    object["type"] = (entry.isDirectory()) ? "dir" : "file";
-    object["name"] = String(entry.name());
-    entry.close();
-  }
-  String response = "";
-  serializeJson(array, response);
-  server.send(200, appJson_P, response);
-  dir.close();
-}
-
 /************************************************************************************************
  * 
  * Following handlers added to WebServer for IotaWatt specific requests

@@ -62,14 +62,6 @@ bool spiffsRemove(const char* path){
     }
     return true;
 }
-//************************************* return size of a SPIFFS file ****************************************************
-size_t spiffsFileSize(const char* path){
-    if(! spiffsFileExists(path)) return 0;
-    File file = SPIFFS.open(path,"r");
-    size_t size = file.size();
-    file.close();
-    return size;
-}
 //************************************* does a SPIFFS path exist? ****************************************************
 bool spiffsFileExists(const char* path){
    if( ! spiffsBegin()) return false;

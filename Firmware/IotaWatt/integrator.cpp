@@ -191,20 +191,8 @@ void integrator::newLogEntry(IotaLogRecord* oldRecord, IotaLogRecord* newRecord)
     }
 }
 
-char *integrator::name(){
-    return _name;
-}
-
 IotaLog* integrator::get_log(){
     return _log;
-}
-
-void integrator::setScript(Script* script){
-    _script = script;
-}
-
-bool integrator::isSynchronized(){
-    return _synchronized;
 }
 
 void integrator::end(){

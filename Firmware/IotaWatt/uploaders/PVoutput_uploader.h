@@ -58,7 +58,6 @@ class PVresponse {
         char*       parsePointer(int section, int item);        // parse a given section/item as a char*
         uint32_t    parseDate(int section, int item);           // parse a given section/item as a YYYYMMDD date
         uint32_t    parseTime(int section, int item);           // parse a given section/item as a hh:mm time
-        void        print();                                    // Print the whole response
         String      peek(int length, int offset=0);             // Return the whole response as a String
         size_t      length();                                   // Return strlen(_response)
         bool        contains(const char *str);                  // Check if _response contains a given string

@@ -20,14 +20,11 @@ class integrator {
         ~integrator();
        
         bool config(Script* script);
-        void setScript(Script* script);
         void getStatusJson(JsonObject&);
         uint32_t dispatch(struct serviceBlock *serviceBlock);
         double run(IotaLogRecord *oldRecord, IotaLogRecord *newRecord, units Units, char method);
         void newLogEntry(IotaLogRecord *oldRecord, IotaLogRecord *newRecord);
-        char *name();
         IotaLog* get_log();
-        bool isSynchronized();
         void end();
 
     protected:

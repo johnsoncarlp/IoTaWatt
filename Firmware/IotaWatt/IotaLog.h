@@ -93,7 +93,6 @@ class IotaLog
     uint32_t lastKey();
     int32_t  lastSerial();
     uint32_t fileSize();
-    uint32_t readKeyIO();
     uint32_t interval();
     uint32_t setDays(uint32_t); 
 	 	      

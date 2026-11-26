@@ -441,20 +441,6 @@ bool copyUpdate(String version){
   return true;
 }
 
-void printHex(uint8_t* data, size_t len){
-  const char* hexchars = "0123456789abcdef";
-  for(int i=0; i<len; i+=16){
-    for(int j=i; j<(i+16); j++){
-      if(j < len){
-        Serial.print(hexchars[*data >> 4]);
-        Serial.print(hexchars[*data++ & 0x0f]);
-      }
-      if((j % 4) == 3) Serial.print(" ");
-    }
-    Serial.println();
-  }
-}
-
 long getTablesVersion(){
   File tableFile;
   tableFile = SD.open(F(IOTA_TABLE_PATH), FILE_READ);

@@ -4,7 +4,6 @@
 #include "splitstr.h"
 #include "uploaders/Uploader_Registry.h"
 
-String formatHex(uint32_t data);
 void dropDead(void);
 void dropDead(const char*);
 void setLedCycle(const char* pattern);

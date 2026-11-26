@@ -860,10 +860,6 @@ uint32_t    PVresponse::parseTime(int section, int item){
     return HHMMSS2daytime(parseString(section, item).c_str(), "%2d:%2d");
 }
 
-void    PVresponse::print(){
-    Serial.println(_response);
-}
-
 String  PVresponse::peek(int length, int offset){
     int len = strlen(_response);
     if(offset >= len) return String();

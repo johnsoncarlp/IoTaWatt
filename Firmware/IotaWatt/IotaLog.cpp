@@ -247,7 +247,6 @@ int32_t IotaLog::firstSerial(){return _firstSerial;}
 uint32_t IotaLog::lastKey(){return _lastKey;}
 int32_t IotaLog::lastSerial(){return _lastSerial;}
 uint32_t IotaLog::fileSize(){return _fileSize;}
-uint32_t IotaLog::readKeyIO(){return _readKeyIO;}
 uint32_t IotaLog::interval(){return _interval;}
 
 uint32_t IotaLog::setDays(uint32_t days){

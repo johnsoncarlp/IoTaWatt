@@ -222,20 +222,6 @@ float getAref(int channel) {
 //
 //**********************************************************************************************
 
-void printSamples() {
-  Serial.println(samples);
-  for(int i=0; i<(samples + 2); i++)
-  {
-    Serial.print(i);
-    Serial.print(", ");
-    Serial.print(Vsample[i]);
-    Serial.print(", ");
-    Serial.print(Isample[i]);
-    Serial.println();
-  }
-  return;
-}
-
 // String samplePhase(uint8_t Vchan, uint8_t Ichan, uint16_t shift){
 
 //   trace(T_samplePhase,0);

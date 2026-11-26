@@ -20,7 +20,6 @@ class  CSVquery {
         size_t  readResult(uint8_t* buf, int len);
         bool    isJson();
         bool    timedOut(){return _timedOut;}   // caller must abort the transfer (output is incomplete)
-        bool    isCSV();
         String  failReason();
 
     private:
