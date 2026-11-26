@@ -249,6 +249,23 @@ static void test_query_streaming_and_timeout_abort(void){
   TEST_ASSERT_TRUE(logged);
 }
 
+// ---- InfluxDB v1 reconfiguration (here, not in test_uploaders: that suite replaces operator
+// new/delete to count heap use, which hides allocation mismatches from AddressSanitizer) ----
+// B63: a new configuration with a retention policy freed the old one with delete instead of
+// delete[] (AddressSanitizer: alloc-dealloc-mismatch).
+static void test_influxdb_v1_reconfig_retention(void){
+  influxDB_uploader* u = new influxDB_uploader;
+  for(int rev = 1; rev <= 2; rev++){
+    std::string cfg = "{\"type\":\"influxdb\",\"revision\":" + std::to_string(rev) + ",\"url\":\"http://influx.lan:8086\","
+      "\"database\":\"iotawatt\",\"retp\":\"autogen\",\"postInterval\":10,"
+      "\"outputs\":[{\"name\":\"Main\",\"units\":\"Watts\",\"script\":\"@1\"}]}";
+    TEST_ASSERT_TRUE(u->config(cfg.c_str()));
+  }
+  delete u;
+  for(serviceBlock* b : hostServices) delete b;                     // the stand-in scheduler's blocks
+  hostServices.clear();
+}
+
 // ---- overload guard (webGuard.cpp) ----
 static void test_guard_cost(void){
   TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/status"));
@@ -513,6 +530,7 @@ int main(int, char**){
   RUN_TEST(test_graph_lists_survive_bad_files);
   RUN_TEST(test_directory_listing);
   RUN_TEST(test_query_streaming_and_timeout_abort);
+  RUN_TEST(test_influxdb_v1_reconfig_retention);
   RUN_TEST(test_guard_cost);
   RUN_TEST(test_guard_bucket);
   RUN_TEST(test_guard_per_client);

@@ -207,7 +207,7 @@ bool influxDB_uploader::configCB(JsonObject& config){
     _user = charstar(jStr(config[F("user")]));
     delete[] _pwd;
     _pwd = charstar(jStr(config[F("pwd")]));
-    delete _retention;
+    delete[] _retention;                // was delete: allocated with new[] (charstar)
     _retention = charstar(jStr(config[F("retp")]));
     if( ! configLineProtocol(config)) return false;
 
