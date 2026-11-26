@@ -1,0 +1,66 @@
+// IoTaWatt web UI: Bootstrap 5.3.9, only the parts the pages use, with the IoTaWatt theme.
+// Built by build.sh into SD/bootstrap.min.css. Page-specific styles stay in SD/cnfstyle.css.
+
+@import "bootstrap/scss/mixins/banner";
+@include bsBanner("(IoTaWatt build)");
+
+// ---- theme ----
+$primary:            #2e7d32;     // IoTaWatt green
+$success:            #2e7d32;
+$font-size-base:     .9375rem;
+$border-radius:      .375rem;
+$enable-shadows:     false;
+$enable-gradients:   false;
+$link-decoration:    none;
+$enable-dark-mode:   true;
+$color-mode-type:    data;        // data-bs-theme="dark" on <html>, set from the system setting
+$grid-breakpoints:   (xs: 0, sm: 576px, md: 768px, lg: 992px, xl: 1200px);
+$container-max-widths: (sm: 540px, md: 720px, lg: 960px, xl: 1140px);
+
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/variables-dark";
+// Only the colours the pages use: fewer button, alert and list variants.
+$theme-colors: map-get-multiple($theme-colors, ("primary", "secondary", "success", "danger", "warning", "light"));
+$table-variants: ();
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+@import "bootstrap/scss/utilities";
+
+// Keep only the utilities the pages use (the full set is about a third of Bootstrap's CSS).
+$utilities: map-get-multiple($utilities, (
+  "display", "flex", "flex-direction", "flex-wrap", "flex-grow", "flex-shrink", "justify-content", "align-items",
+  "align-self", "gap", "margin", "margin-x", "margin-y", "margin-top", "margin-end", "margin-bottom", "margin-start",
+  "padding", "padding-x", "padding-y", "padding-top", "padding-end", "padding-bottom", "padding-start",
+  "width", "text-align", "font-family", "font-weight", "font-size", "color", "overflow", "white-space", "visibility"
+));
+// Spacing and font-size utilities without breakpoint variants (.p-3, not .p-md-3): layout changes
+// per screen size are done with the grid and in cnfstyle.css.
+@each $key in ("margin", "margin-x", "margin-y", "margin-top", "margin-end", "margin-bottom", "margin-start",
+               "padding", "padding-x", "padding-y", "padding-top", "padding-end", "padding-bottom", "padding-start",
+               "gap", "text-align", "font-size", "flex-wrap", "flex-grow", "flex-shrink", "align-self") {
+  $utilities: map-merge($utilities, ($key: map-merge(map-get($utilities, $key), (responsive: false))));
+}
+
+@import "bootstrap/scss/root";
+@import "bootstrap/scss/reboot";
+@import "bootstrap/scss/type";
+@import "bootstrap/scss/containers";
+@import "bootstrap/scss/grid";
+@import "bootstrap/scss/tables";
+@import "bootstrap/scss/forms";
+@import "bootstrap/scss/buttons";
+@import "bootstrap/scss/transitions";
+@import "bootstrap/scss/dropdown";
+@import "bootstrap/scss/button-group";
+@import "bootstrap/scss/nav";
+@import "bootstrap/scss/navbar";
+@import "bootstrap/scss/card";
+@import "bootstrap/scss/alert";
+@import "bootstrap/scss/badge";
+@import "bootstrap/scss/list-group";
+@import "bootstrap/scss/close";
+@import "bootstrap/scss/offcanvas";
+@import "bootstrap/scss/helpers";
+@import "bootstrap/scss/utilities/api";
+@import "icons";

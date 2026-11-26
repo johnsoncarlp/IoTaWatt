@@ -12,6 +12,8 @@ FILES = [                                   # (SD file, content type)
     ("graph2.htm",   "text/html"),
     ("graph2.js",    "application/javascript"),
     ("cnfstyle.css", "text/css"),
+    ("bootstrap.min.css", "text/css"),              # built by scripts/webui-bootstrap
+    ("bootstrap.min.js",  "application/javascript"),
 ]
 
 project = env.subst("$PROJECT_DIR")
