@@ -1,19 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>SD Editor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Files</title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="cnfstyle.css">
+    <script src="bootstrap.min.js"></script>
+    <script src="iotanav.js"></script>
     <style type="text/css" media="screen">
       .contextMenu {
         z-index: 300;
         position: absolute;
         left: 5px;
-        border: 1px solid #444;
-        background-color: #F5F5F5;
+        border: 1px solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        background-color: var(--bs-body-bg);
         display: none;
         box-shadow: 0 0 10px rgba( 0, 0, 0, .4 );
-        font-size: 12px;
-        font-family: sans-serif;
-        font-weight:bold;
+        font-size: .85rem;
       }
       .contextMenu ul {
         list-style: none;
@@ -28,12 +33,11 @@
         cursor: pointer;
       }
       .contextMenu span {
-        color: #444;
+        color: var(--bs-body-color);
         display: inline-block;
         padding: 6px;
       }
-      .contextMenu li:hover { background: #444; }
-      .contextMenu li:hover span { color: #EEE; }
+      .contextMenu li:hover { background: var(--bs-secondary-bg); }
     
       .css-treeview ul, .css-treeview li {
         padding: 0;
@@ -47,14 +51,14 @@
       }
 
       .css-treeview {
-        font: normal 11px Verdana, Arial, Sans-serif;
+        font-size: .85rem;
         -moz-user-select: none;
         -webkit-user-select: none;
         user-select: none;
       }
 
       .css-treeview span {
-        color: #00f;
+        color: var(--bs-link-color);
         cursor: pointer;
       }
 
@@ -89,10 +93,11 @@
 
       .css-treeview label, .css-treeview span, .css-treeview label::before {
         display: inline-block;
-        height: 16px;
-        line-height: 16px;
+        height: 20px;
+        line-height: 20px;
         vertical-align: middle;
       }
+      [data-bs-theme=dark] .css-treeview label::before { filter: invert(.85); }
 
       .css-treeview label {
         background-position: 18px 0;
@@ -128,38 +133,28 @@
         }
       }
 
-      #uploader { 
-        position: absolute;
-        top: 0;
-        right: 0;
-        left: 0;
-        height:28px;
-        line-height: 24px;
-        padding-left: 10px;
-        background-color: #444;
-        color:#EEE;
+      /* Menu bar, toolbar, then the file tree beside the editor (above it on a phone). */
+      html, body { height: 100%; }
+      body { display: flex; flex-direction: column; }
+      #iotanav { margin-bottom: 0; }
+      #uploader {
+        display: flex; flex-wrap: wrap; gap: .4rem; align-items: center;
+        padding: .5rem .75rem;
+        background: var(--bs-tertiary-bg);
+        border-bottom: var(--bs-border-width) solid var(--bs-border-color);
       }
-      #tree { 
-        position: absolute;
-        top: 45px;
-        bottom: 0;
-        left: 0;
-        width:200px;
-        padding: 8px;
-      }
-      #editor, #preview { 
-        position: absolute;
-        top: 28px;
-        right: 0;
-        bottom: 0;
-        left: 200px;
-      }
-      #preview {
-        background-color: #EEE;
-        padding:5px;
-      }
-      #msgarea {
-        margin: 2em 0 0 0;
+      #uploader input[type=file] { max-width: 16rem; }
+      #upload-path { width: 12rem; }
+      #workarea { flex: 1; display: flex; min-height: 0; }
+      #side { width: 220px; flex-shrink: 0; overflow: auto; padding: .5rem;
+              border-right: var(--bs-border-width) solid var(--bs-border-color); }
+      #editor, #preview { flex: 1; position: relative; min-width: 0; }
+      #preview { background-color: var(--bs-tertiary-bg); padding: 5px; overflow: auto; }
+      #msgarea { margin: 1rem 0 0; font-size: .85rem; color: var(--bs-secondary-color); }
+      @media (max-width: 767.98px) {
+        #workarea { flex-direction: column; }
+        #side { width: auto; max-height: 30vh; border-right: 0; border-bottom: var(--bs-border-width) solid var(--bs-border-color); }
+        #editor, #preview { min-height: 60vh; }
       }
     </style>
     <script>
@@ -169,21 +164,27 @@
         input.type = "file";
         input.multiple = false;
         input.name = "data";
+        input.className = "form-control form-control-sm";
         document.getElementById(element).appendChild(input);
         var path = document.createElement("input");
         path.id = "upload-path";
         path.type = "text";
         path.name = "path";
         path.defaultValue = "/";
+        path.className = "form-control form-control-sm";
+        path.setAttribute("aria-label", "Path");
         document.getElementById(element).appendChild(path);
         var button = document.createElement("button");
         button.innerHTML = 'Upload';
+        button.className = "btn btn-sm btn-primary";
         document.getElementById(element).appendChild(button);
         var mkdir = document.createElement("button");
-        mkdir.innerHTML = 'MkDir';
+        mkdir.innerHTML = 'New folder';
+        mkdir.className = "btn btn-sm btn-outline-secondary";
         document.getElementById(element).appendChild(mkdir);
         var mkfile = document.createElement("button");
-        mkfile.innerHTML = 'MkFile';
+        mkfile.innerHTML = 'New file';
+        mkfile.className = "btn btn-sm btn-outline-secondary";
         document.getElementById(element).appendChild(mkfile);
   
         function httpPostProcessRequest(){
@@ -576,7 +577,9 @@
           lang = getLangFromFilename(file);
         }
   
-        if(typeof theme === "undefined") theme = "textmate";
+        if(typeof theme === "undefined"){
+          theme = document.documentElement.getAttribute("data-bs-theme") == "dark" ? "tomorrow_night" : "textmate";
+        }
   
         if(typeof type === "undefined"){
           type = "text/"+lang;
@@ -669,11 +672,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js" type="text/javascript" charset="utf-8"></script>
   </head>
   <body onload="onBodyLoad();">
+    <nav id="iotanav"></nav>
     <div id="uploader"></div>
-    <div id="tree"></div>
-    <div id="editor"></div>
-	<div id="msgarea"><p>Message Area</p></div>
-    <div id="preview" style="display:none;"></div>
+    <div id="workarea">
+      <div id="side">
+        <div id="tree"></div>
+        <div id="msgarea"><p>Message Area</p></div>
+      </div>
+      <div id="editor"></div>
+      <div id="preview" style="display:none;"></div>
+    </div>
     <iframe id=download-frame style='display:none;'></iframe>
   </body>
 </html>
