@@ -53,84 +53,61 @@ void handleGraphDelete(){
   server.send(200, txtJson_P, F("{\"success\":true,\"message\":\"deleted\"}"));
 }
 
-void handleGraphGetall(){
+        // Send a JSON array built from the files in the graph directory: list() is called with each
+        // file's contents (null-terminated) and appends its entry, if any, to response.
+
+static void sendGraphList(std::function<void(File& file, char* contents, uint32_t size, String& response)> list){
   File directory = SD.open(graphDir);
-  File graphFile;
-  if( !(directory) || !(directory.isDirectory()) || !(graphFile = directory.openNextFile())){
-    if(directory){
-      directory.close(); 
-    }
-    server.send(200, appJson_P, "[]");
-    return;
-  }
   String response = "[";
-  while(graphFile){
-    uint32_t fileSize = graphFile.size();
-    if(fileSize < 10){                          // too short to hold "start" (and fileSize-1/-9 would wrap)
+  if(directory && directory.isDirectory()){
+    File graphFile;
+    while((graphFile = directory.openNextFile())){
+      uint32_t fileSize = graphFile.size();
+      char* bufr = new char[fileSize + 1];
+      graphFile.read((uint8_t*)bufr, fileSize);
+      bufr[fileSize] = 0;
+      list(graphFile, bufr, fileSize, response);
+      delete[] bufr;
       graphFile.close();
-      graphFile = directory.openNextFile();
-      continue;
     }
-    char* bufr = new char[fileSize];
-    graphFile.read((uint8_t*)bufr, fileSize);
-    bufr[fileSize-1] = 0;
-    char* ptr = bufr;
-    for(int i=0; i<fileSize-9; i++){
-      if(memcmp(ptr++, "\"start\"", 7) == 0){
-        if( ! response.endsWith("[")) response += ',';
-        response += bufr;
-        response += ",\"id\":\"";
-        response += graphFile.name();
-        response += "\"}";
-        break;
-      }   
-    }
-    delete[] bufr;
-    graphFile.close();
-    graphFile = directory.openNextFile();
   }
+  if(directory) directory.close();
   response += ']';
   server.send(200, appJson_P, response);
-  directory.close();
-  return;
 }
 
+static void addGraphId(String& response, File& file){
+  response += ",\"id\":\"";
+  response += file.name();
+  response += "\"}";
+}
+
+        // The original Graph page's graphs: those with "start", sent whole.
+
+void handleGraphGetall(){
+  sendGraphList([](File& file, char* contents, uint32_t size, String& response){
+    if(size < 10) return;                       // too short to hold "start"
+    contents[size - 1] = 0;                     // drop the closing brace, addGraphId puts it back
+    if( ! strstr(contents, "\"start\"")) return;
+    if( ! response.endsWith("[")) response += ',';
+    response += contents;
+    addGraphId(response, file);
+  });
+}
+
+        // Graph+'s graphs: those without "start", sent as name and id.
+
 void handleGraphGetallplus(){
-  File directory = SD.open(graphDir);
-  File graphFile;
-  if( !(directory) || !(directory.isDirectory()) || !(graphFile = directory.openNextFile())){
-    if(directory){
-      directory.close(); 
-    }
-    server.send(200, appJson_P, "[]");
-    return;
-  }
-  String response = "[";
-  while(graphFile){
-    uint32_t fileSize = graphFile.size();
-    char* bufr = new char[fileSize+1];
-    graphFile.read((uint8_t*)bufr, fileSize);
-    bufr[fileSize] = 0;
+  sendGraphList([](File& file, char* contents, uint32_t size, String& response){
     JsonDocument Json;
-    DeserializationError jsonError = deserializeJson(Json, bufr);
+    DeserializationError jsonError = deserializeJson(Json, contents);
     JsonObject graph = Json.as<JsonObject>();
-    if( ! jsonError && ! graph.isNull()){
-      if(graph[F("start")].isNull()){
-        if( ! response.endsWith("[")) response += ',';
-        response += "{\"name\":\"";
-        response += graph[F("name")].as<const char*>();
-        response += "\",\"id\":\"";
-        response += graphFile.name();
-        response += "\"}";
-      }
-    }
-    delete[] bufr;
-    graphFile.close();
-    graphFile = directory.openNextFile();
-  }
-  response += ']';
-  server.send(200, appJson_P, response);
-  directory.close();
-  return;
+    if(jsonError || graph.isNull() || ! graph[F("start")].isNull()) return;
+    if( ! response.endsWith("[")) response += ',';
+    response += "{\"name\":\"";
+    response += graph[F("name")].as<const char*>();
+    response += '"';
+    addGraphId(response, file);
+  });
 }
 
