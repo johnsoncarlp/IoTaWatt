@@ -268,94 +268,59 @@
           preview.innerHTML = '<img src="'+path+'" style="max-width:100%; max-height:100%; margin:auto; display:block;" />';
         }
   
+        // One context menu entry: runs action, then closes the menu.
+        function menuItem(list, el, label, action){
+          var item = document.createElement("li");
+          list.appendChild(item);
+          item.innerHTML = "<span>" + label + "</span>";
+          item.onclick = function(e){
+            action();
+            if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
+          };
+        }
+
+        // Reload a folder's listing in the tree.
+        function reloadFolder(path){
+          var leaf = document.getElementById(path).parentNode;
+          if(leaf.childNodes.length == 3) leaf.removeChild(leaf.childNodes[2]);
+          httpGet(leaf, path);
+        }
+
         function fillFolderMenu(el, path){
           var list = document.createElement("ul");
           el.appendChild(list);
-          var action = document.createElement("li");
-          list.appendChild(action);
-          var isChecked = document.getElementById(path).checked;
-          var expnd = document.createElement("li");
-          list.appendChild(expnd);
-          if(isChecked){
-            expnd.innerHTML = "<span>Collapse</span>";
-            expnd.onclick = function(e){
-              document.getElementById(path).checked = false;
-              if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-            };
-            var refrsh = document.createElement("li");
-            list.appendChild(refrsh);
-            refrsh.innerHTML = "<span>Refresh</span>";
-            refrsh.onclick = function(e){
-              var leaf = document.getElementById(path).parentNode;
-              if(leaf.childNodes.length == 3) leaf.removeChild(leaf.childNodes[2]);
-              httpGet(leaf, path);
-              if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-            };
+          if(document.getElementById(path).checked){
+            menuItem(list, el, "Collapse", function(){ document.getElementById(path).checked = false; });
+            menuItem(list, el, "Refresh", function(){ reloadFolder(path); });
           } else {
-            expnd.innerHTML = "<span>Expand</span>";
-            expnd.onclick = function(e){
+            menuItem(list, el, "Expand", function(){
               document.getElementById(path).checked = true;
-              var leaf = document.getElementById(path).parentNode;
-              if(leaf.childNodes.length == 3) leaf.removeChild(leaf.childNodes[2]);
-              httpGet(leaf, path);
-              if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-            };
+              reloadFolder(path);
+            });
           }
-          var upload = document.createElement("li");
-          list.appendChild(upload);
-          upload.innerHTML = "<span>Upload</span>";
-          upload.onclick = function(e){
+          menuItem(list, el, "Upload", function(){
             var pathEl = document.getElementById("upload-path");
             if(pathEl){
               var subPath = pathEl.value;
               if(subPath.lastIndexOf("/") < 1) pathEl.value = path+subPath;
               else pathEl.value = path.substring(subPath.lastIndexOf("/"))+subPath;
             }
-            if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-          };
-          var delFile = document.createElement("li");
-          list.appendChild(delFile);
-          delFile.innerHTML = "<span>Delete</span>";
-          delFile.onclick = function(e){
-            httpDelete(path);
-            if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-          };
+          });
+          menuItem(list, el, "Delete", function(){ httpDelete(path); });
         }
-  
+
         function fillFileMenu(el, path){
           var list = document.createElement("ul");
           el.appendChild(list);
-          var action = document.createElement("li");
-          list.appendChild(action);
           if(isTextFile(path)){
-            action.innerHTML = "<span>Edit</span>";
-            action.onclick = function(e){
-              editor.loadUrl(path);
-              if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-            };
+            menuItem(list, el, "Edit", function(){ editor.loadUrl(path); });
           } else if(isImageFile(path)){
-            action.innerHTML = "<span>Preview</span>";
-            action.onclick = function(e){
-              loadPreview(path);
-              if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-            };
+            menuItem(list, el, "Preview", function(){ loadPreview(path); });
           }
-          var download = document.createElement("li");
-          list.appendChild(download);
-          download.innerHTML = "<span>Download</span>";
-          download.onclick = function(e){
-            loadDownload(path);
-            if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-          };
-          var delFile = document.createElement("li");
-          list.appendChild(delFile);
-          delFile.innerHTML = "<span>Delete</span>";
-          delFile.onclick = function(e){
-            httpDelete(path);
-            if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
-          };
+          menuItem(list, el, "Download", function(){ loadDownload(path); });
+          menuItem(list, el, "Delete", function(){ httpDelete(path); });
         }
-  
+
         function showContextMenu(e, path, isfile){
           var divContext = document.createElement("div");
           var scrollTop = document.body.scrollTop ? document.body.scrollTop : document.documentElement.scrollTop;
