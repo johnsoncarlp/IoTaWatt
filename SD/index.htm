@@ -3255,9 +3255,17 @@
             noConfig = true;
         }
 
-        function getTables() {
+        // The configuration check (checkConfig) needs the tables, so load them first.
+        function getTables(callback) {
             readFile(configTablesURL, function(response) {
-                tables = JSON.parse(response);
+                try {
+                    tables = JSON.parse(response);
+                } catch (e) {
+                    tables = {};
+                }
+                if (tables.VT === undefined) tables.VT = [];
+                if (tables.CT === undefined) tables.CT = [];
+                if (callback !== undefined) callback();
             });
         }
 
@@ -3317,9 +3325,10 @@
 
 
         function setup() {
-            getTables();
-            getConfig();
             resetDisplay();
+            getTables(function() {
+                getConfig();
+            });
         }
     </script>
 </body>
