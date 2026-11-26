@@ -465,9 +465,6 @@
         var configNewURL = "/config+1.txt";
         var burdenFileURL = "/esp_spiffs/config/device/burden.txt";
         var configTablesURL = "/tables.txt";
-        var editURL = "edit.htm";
-        var graph2URL = "graph2.htm";
-        var msgsFileURL = "/iotawatt/iotamsgs.txt?textpos=-10000";
         var currentBody = [];
         var configSHA256;
         var noConfig = true;
@@ -479,8 +476,6 @@
         var editing = false;
         var editingScript = false;
         var getStatus = false;
-        var calVoltageUpdate = false;
-        var avgVoltage = 0;
         var calVTvolts = 0;
         var originalName;
         var originalNtp;
@@ -1915,10 +1910,6 @@
             deviceUpdate.setAttribute("onchange", "config.update = this.value; checkDevice();");
         }
 
-        function changeAdmin(newPassword) {
-            alert("Admin password will be changed to: \"" + newPassword + "\" when you save.");
-        }
-
         function checkDevice() {
             editing = true;
             var complete = true;
@@ -2537,10 +2528,6 @@
             EbyId("serverSave").style.display = complete ? "inline" : "none";
         }
 
-        function deleteInfluxdb() {
-            serverDelete();
-        }
-
         function buildTagSet() {
             table = EbyId("influxTagSet");
             table.innerHTML = "";
@@ -2737,16 +2724,6 @@
         function deletePVOutput() {
             config.pvoutput = undefined;
             serverSave();
-        }
-
-        function PVoutToggle() {
-            if (config.pvoutput.stop === undefined || config.pvoutput.stop == false) {
-                config.pvoutput.stop = true;
-            } else {
-                config.pvoutput.stop = undefined;
-            }
-            config.pvoutput.revision++;
-            uploadConfig();
         }
 
         /***********************************************************************************************
@@ -2981,11 +2958,6 @@
             }
         }
 
-        // Pages that are separate apps or files open in their own tab, keeping this one as it was.
-        function openTab(url) {
-            window.open(url, "_blank", "noopener");
-        }
-
         function formatRunTime(time) {
             var days = Math.floor(time / 86400);
             time -= days * 86400;
@@ -3149,21 +3121,6 @@
             while (currentBody.length > 0) currentBodyPop();
             hide("mainBody");
             iotanav.home();
-        }
-
-        function loadGraph2() {
-            openTab(graph2URL);
-            resetDisplay();
-        }
-
-        function loadEdit() {
-            resetDisplay();
-            openTab(editURL);
-        }
-
-        function showMsgs() {
-            resetDisplay();
-            openTab(msgsFileURL);
         }
 
         function toggleDisplay(id) {
