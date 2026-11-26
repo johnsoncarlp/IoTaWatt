@@ -25,7 +25,8 @@ struct HTTPUpload { HTTPUploadStatus status; String filename, name, type; size_t
 struct HostClient {
   bool stopped = false; std::string written;
   void stop() { stopped = true; }
-  IPAddress remoteIP() { return IPAddress(192, 168, 1, 10); }
+  IPAddress ip = IPAddress(192, 168, 1, 10);       // tests may change the caller
+  IPAddress remoteIP() { return ip; }
   size_t write(const char* b, size_t n) { written.append(b, n); return n; }
   size_t write(const uint8_t* b, size_t n) { written.append((const char*)b, n); return n; }
   size_t write(File& f) { uint8_t b[512]; int n; size_t t = 0; while ((n = f.read(b, sizeof b)) > 0) { written.append((char*)b, n); t += n; } return t; }

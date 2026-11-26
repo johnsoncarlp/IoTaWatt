@@ -6,6 +6,7 @@
 #include "IotaWatt.h"
 #include "uploaders/Uploader_Registry.h"
 #endif
+#include "webGuard.h"
 
 
 /*
@@ -72,8 +73,38 @@ bool authenticate(authLevel level){
 
     /* handleRequest - basic gatekeeper to administrate authorization */
 
+WebGuard webGuard;                      // overload guard state (webGuard.h)
+
+        // Refuse a request with 503 when the guard says so; log the refusals at most once a minute.
+
+static void webGuardLog(){
+  log("webServer: busy, refused %u request(s) for low memory (heap %u) and %u for coming too fast",
+      webGuard.refusedHeap, ESP.getFreeHeap(), webGuard.refusedFast);
+  webGuard.refusedHeap = webGuard.refusedFast = 0;
+  webGuard.lastLogMs = millis();
+  webGuard.logged = true;
+}
+
+static bool webGuardRefuse(const String& uri){
+  bool deviceOnly = server.args() == 1 && server.hasArg(F("device"));      // the menu bar's /status?device=yes
+  webGuardReason reason = webGuardCheck(webGuard, webRequestCost(uri.c_str(), deviceOnly), ESP.getFreeHeap(), millis(),
+                                        (uint32_t)server.client().remoteIP());
+  bool due = millis() - webGuard.lastLogMs >= 60000UL;
+  if(reason == webGuardOK){
+    if(due && (webGuard.refusedHeap || webGuard.refusedFast)) webGuardLog();   // the refusals since the last line
+    return false;
+  }
+  if(reason == webGuardLowHeap) webGuard.refusedHeap++;
+  else webGuard.refusedFast++;
+  if( ! webGuard.logged || due) webGuardLog();
+  server.sendHeader(F("Retry-After"), String(webGuardRetryAfter(reason)));
+  server.send(503, txtPlain_P, F("Busy, try again shortly\r\n"));
+  return true;
+}
+
 void handleRequest(){
   String uri = server.uri();
+  if(webGuardRefuse(uri)) return;
   if(serverOn(authUser,  F("/status"),HTTP_GET, handleStatus)) return;
   if(serverOn(authAdmin, F("/vcal"),HTTP_GET, handleVcal)) return;
   if(serverOn(authAdmin, F("/command"), HTTP_GET, handleCommand)) return;

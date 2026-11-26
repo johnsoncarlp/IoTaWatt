@@ -62,7 +62,8 @@ struct IPAddress {
 struct HostESP {
   int restarts = 0;
   void restart() { restarts++; }       // the device never returns from this; tests check the count
-  uint32_t getFreeHeap() { return 40000; }
+  uint32_t freeHeap = 40000;            // tests may lower it (webGuard)
+  uint32_t getFreeHeap() { return freeHeap; }
 };
 inline HostESP ESP;
 

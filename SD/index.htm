@@ -2763,12 +2763,37 @@
             statusGet();
         }
 
+        // One status request at a time, then the next a second later, while Status is shown and the
+        // tab is visible: a hidden tab doesn't poll the device, and reopening Status doesn't start a
+        // second chain.
+        var statusTimer = null, statusPending = false;
+        function statusSchedule(ms) {
+            clearTimeout(statusTimer);
+            statusTimer = setTimeout(function() {
+                statusTimer = null;
+                if (getStatus && !document.hidden) statusGet();
+            }, ms);
+        }
+        document.addEventListener("visibilitychange", function() {
+            if (!document.hidden && getStatus && statusTimer === null) statusGet();
+        });
+
         function statusGet() {
+            if (statusPending) return;
+            clearTimeout(statusTimer);
+            statusTimer = null;
+            statusPending = true;
             var xmlHttp = new XMLHttpRequest();
             xmlHttp.onreadystatechange = function() {
-                if (this.readyState == 4 && this.status == 200) {
-                    statusDisplay(xmlHttp.responseText);
+                if (this.readyState != 4) return;
+                statusPending = false;
+                if (this.status == 200) {
+                    if (getStatus) statusDisplay(xmlHttp.responseText);
+                    return;
                 }
+                // Busy (503 from the overload guard) or a dropped connection: try again, or the
+                // display would stop until the page is reopened.
+                statusSchedule(1000 * (parseInt(this.getResponseHeader("Retry-After")) || 2));
             }
             xmlHttp.open("GET", "/status?state&inputs&outputs&stats&wifi&datalogs&uploaders", true);
             xmlHttp.send(null);
@@ -2901,9 +2926,7 @@
                 column3.appendChild(wattNode);
             }
 
-            setTimeout(function() {
-                if (getStatus) statusGet();
-            }, 1000);
+            statusSchedule(1000);
 
             function addRow() {
                 newRow = document.createElement("tr");

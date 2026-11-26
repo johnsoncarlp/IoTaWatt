@@ -13,6 +13,7 @@
 #include "uploaders/Uploader.cpp"
 #include "uploaders/influxDB_uploader.cpp"
 #include "CSVquery.cpp"
+#include "webGuard.cpp"
 #include "webServer.cpp"
 #include "graphSave.cpp"
 #include "webui.cpp"
@@ -247,6 +248,121 @@ static void test_query_streaming_and_timeout_abort(void){
   TEST_ASSERT_TRUE(logged);
 }
 
+// ---- overload guard (webGuard.cpp) ----
+static void test_guard_cost(void){
+  TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/status"));
+  TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/query"));
+  TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/feed/data.json"));
+  TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/graph/getallplus"));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost("/"));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost("/index.htm"));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost("/statusx"));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost("/nullreq"));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost(nullptr));
+  TEST_ASSERT_EQUAL_INT(webLight, webRequestCost("/status", true));    // the menu bar's /status?device=yes
+  TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/query", true));
+}
+
+// A burst of WEB_GUARD_BURST heavy requests passes, the next is too fast; tokens come back one per
+// WEB_GUARD_REFILL_MS, never more than the burst, also across the millis() wrap. Light requests
+// never take a token.
+static void test_guard_bucket(void){
+  for(uint32_t start : {1000u, 0xFFFFF000u}){
+    WebGuard g; uint32_t t = start;
+    for(int i = 0; i < WEB_GUARD_BURST; i++) TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t));
+    TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t));
+    TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webLight, 40000, t));
+    t += WEB_GUARD_REFILL_MS - 1;
+    TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t));
+    t += 1;
+    TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t));
+    TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t));
+    t += 3600000;                                                      // an hour idle: full burst, no more
+    for(int i = 0; i < WEB_GUARD_BURST; i++) TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t));
+    TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t));
+    for(int i = 0; i < 50; i++){                                      // steady 1 per refill period: all pass
+      t += WEB_GUARD_REFILL_MS;
+      TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t));
+    }
+  }
+}
+
+// Each caller has its own bucket: one polling too fast doesn't take the others' requests. A fifth
+// caller reuses the least recently used bucket (fresh, full).
+static void test_guard_per_client(void){
+  WebGuard g; uint32_t t = 1000;
+  const uint32_t ha = 0x0A01A8C0, ui = 0x0B01A8C0, script = 0x0C01A8C0;
+  for(int i = 0; i < 50; i++) webGuardCheck(g, webHeavy, 40000, t, script);       // flat out
+  TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t, script));
+  for(int i = 0; i < WEB_GUARD_BURST; i++){
+    TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t, ha));
+    TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t, ui));
+  }
+  TEST_ASSERT_EQUAL_INT(webGuardTooFast, webGuardCheck(g, webHeavy, 40000, t, ha));
+  t += 10;
+  webGuardCheck(g, webHeavy, 40000, t, 4);                                         // 4th caller
+  t += 10;
+  webGuardCheck(g, webHeavy, 40000, t, 5);                                         // 5th: reuses script's (oldest)
+  t += 10;
+  TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t, script)); // back fresh, evicting ha
+  TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, 40000, t, ha));     // ha too (fresh again)
+}
+
+static void test_guard_low_heap(void){
+  WebGuard g;
+  TEST_ASSERT_EQUAL_INT(webGuardLowHeap, webGuardCheck(g, webLight, WEB_GUARD_MIN_HEAP - 1, 0));
+  TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webLight, WEB_GUARD_MIN_HEAP, 0));
+  TEST_ASSERT_EQUAL_INT(webGuardLowHeap, webGuardCheck(g, webHeavy, WEB_GUARD_MIN_HEAP_HEAVY - 1, 0));
+  TEST_ASSERT_EQUAL_INT(webGuardOK, webGuardCheck(g, webHeavy, WEB_GUARD_MIN_HEAP_HEAVY, 0));
+  TEST_ASSERT_EQUAL_UINT32(5, webGuardRetryAfter(webGuardLowHeap));
+  TEST_ASSERT_EQUAL_UINT32(1, webGuardRetryAfter(webGuardTooFast));
+}
+
+// Through the dispatcher: a caller polling /status too fast gets 503 + Retry-After, the web UI is
+// still served, and low memory refuses everything; refusals are logged at most once a minute.
+static void test_guard_in_handleRequest(void){
+  SD.reset(); hostLog.clear(); webGuard = WebGuard(); ESP.freeHeap = 40000; hostMillis = 5000;
+  auto get = [](const char* uri) -> const HostResponse& {
+    request({}); server._uri = uri; server._method = HTTP_GET; handleRequest();
+    TEST_ASSERT_FALSE(server.responses.empty()); return server.responses.back();
+  };
+  for(int i = 0; i < WEB_GUARD_BURST; i++) TEST_ASSERT_EQUAL_INT(200, get("/status").code);
+  const HostResponse& r = get("/status");
+  TEST_ASSERT_EQUAL_INT(503, r.code);
+  TEST_ASSERT_EQUAL_STRING("1", server.sentHeaders["Retry-After"].c_str());
+  TEST_ASSERT_EQUAL_INT(503, get("/query").code);
+  TEST_ASSERT_EQUAL_INT(200, get("/").code);                          // embedded web UI: light
+  hostMillis += WEB_GUARD_REFILL_MS;
+  TEST_ASSERT_EQUAL_INT(200, get("/status").code);
+  size_t logged = 0; for(auto& l : hostLog) logged += l.find("webServer: busy") != std::string::npos;
+  TEST_ASSERT_EQUAL_INT(1, logged);                                    // once, not per refusal
+
+  ESP.freeHeap = WEB_GUARD_MIN_HEAP - 1; hostMillis += 60000;
+  TEST_ASSERT_EQUAL_INT(503, get("/").code);
+  TEST_ASSERT_EQUAL_STRING("5", server.sentHeaders["Retry-After"].c_str());
+  logged = 0; for(auto& l : hostLog) logged += l.find("low memory") != std::string::npos;
+  TEST_ASSERT_EQUAL_INT(2, logged);
+  ESP.freeHeap = 40000; webGuard = WebGuard();
+
+        // Other callers aren't refused because one polls too fast (B78); the menu bar's device status
+        // is light (B79); refusals after the last log line (the first was logged at once, 3 more
+        // since) are logged by the next request a minute on (B81).
+  hostLog.clear();
+  for(int i = 0; i < WEB_GUARD_BURST + 3; i++) get("/status");                    // 192.168.1.10, flat out
+  TEST_ASSERT_EQUAL_INT(503, get("/status").code);
+  request({}); server._uri = "/status"; server._method = HTTP_GET; server._client.ip = IPAddress(192, 168, 1, 20);
+  handleRequest();
+  TEST_ASSERT_EQUAL_INT(200, server.responses.back().code);
+  request({{"device", "yes"}}); server._uri = "/status"; server._method = HTTP_GET; handleRequest();
+  TEST_ASSERT_EQUAL_INT(200, server.responses.back().code);                        // .10 again, but light
+  size_t before = hostLog.size();
+  hostMillis += 60000;
+  TEST_ASSERT_EQUAL_INT(200, get("/").code);
+  TEST_ASSERT_EQUAL_INT((int)before + 1, (int)hostLog.size());
+  TEST_ASSERT_TRUE(hostLog.back().find("and 3 for coming too fast") != std::string::npos);
+  ESP.freeHeap = 40000; webGuard = WebGuard();
+}
+
 // ---- embedded web UI (webui.cpp) ----
 static std::string gunzip(const uint8_t* d, size_t n){
   z_stream z{}; inflateInit2(&z, 16 + MAX_WBITS);
@@ -396,6 +512,11 @@ int main(int, char**){
   RUN_TEST(test_graph_lists_survive_bad_files);
   RUN_TEST(test_directory_listing);
   RUN_TEST(test_query_streaming_and_timeout_abort);
+  RUN_TEST(test_guard_cost);
+  RUN_TEST(test_guard_bucket);
+  RUN_TEST(test_guard_per_client);
+  RUN_TEST(test_guard_low_heap);
+  RUN_TEST(test_guard_in_handleRequest);
   RUN_TEST(test_webui_embedded_matches_sources);
   RUN_TEST(test_webui_find);
   RUN_TEST(test_webui_served_embedded);
