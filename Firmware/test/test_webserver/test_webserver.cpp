@@ -21,7 +21,8 @@
 #include <zlib.h>
 #include <fstream>
 #include <sstream>
-bool auth(authLevel) { return hostAuthResult; }          // auth.cpp isn't under test here
+static bool hostAdminResult = true;                     // auth.cpp isn't under test here: logged in, at
+bool auth(authLevel l) { return l == authAdmin ? hostAuthResult && hostAdminResult : hostAuthResult; }   // which level
 
 static uint32_t T0;
 static IotaInputChannel* chans[3];
@@ -265,6 +266,24 @@ static void test_influxdb_v1_reconfig_retention(void){
   delete u;
   for(serviceBlock* b : hostServices) delete b;                     // the stand-in scheduler's blocks
   hostServices.clear();
+}
+
+// The data plane (user login): readings and status only. Directory listings and diagnostics need admin
+// (Docs/api.rst); the endpoints Home Assistant and other integrations read stay user-level.
+static void test_user_login_gets_data_only(void){
+  hostAdminResult = false;
+  auto get = [](const char* uri, std::initializer_list<std::pair<const char*, std::string>> a) -> int {
+    request(a); server._uri = uri; server._method = HTTP_GET; webGuard = WebGuard(); handleRequest();
+    return server.responses.empty() ? 0 : server.responses.back().code;
+  };
+  TEST_ASSERT_EQUAL_INT(401, get("/list", {{"dir", "/iotawatt"}}));
+  TEST_ASSERT_EQUAL_INT(401, get("/DSTtest", {{"begin", "0"}, {"end", "0"}}));
+  TEST_ASSERT_EQUAL_INT(401, get("/config.txt", {}));
+  TEST_ASSERT_EQUAL_INT(200, get("/status", {{"wifi", "yes"}}));
+  TEST_ASSERT_EQUAL_INT(200, get("/status", {{"inputs", "yes"}, {"outputs", "yes"}}));
+  TEST_ASSERT_EQUAL_INT(200, get("/feed/list.json", {}));
+  TEST_ASSERT_NOT_EQUAL(401, get("/query", {{"show", "series"}}));
+  hostAdminResult = true;
 }
 
 // ---- overload guard (webGuard.cpp) ----
@@ -532,6 +551,7 @@ int main(int, char**){
   RUN_TEST(test_directory_listing);
   RUN_TEST(test_query_streaming_and_timeout_abort);
   RUN_TEST(test_influxdb_v1_reconfig_retention);
+  RUN_TEST(test_user_login_gets_data_only);
   RUN_TEST(test_guard_cost);
   RUN_TEST(test_guard_bucket);
   RUN_TEST(test_guard_per_client);

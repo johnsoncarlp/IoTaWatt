@@ -29,6 +29,7 @@ IoTaWatt documentation
     Original Graph <originalGraph>
     File Manager and Editor <fileManager>
     Query API <query.rst>
+    HTTP API for integrations <api>
     HTTPS Proxy Server <HTTPSproxy.rst>
     Message Log <messageLog>
     Troubleshooting <troubleshooting>

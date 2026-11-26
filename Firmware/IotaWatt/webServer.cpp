@@ -108,7 +108,7 @@ void handleRequest(){
   if(serverOn(authUser,  F("/status"),HTTP_GET, handleStatus)) return;
   if(serverOn(authAdmin, F("/vcal"),HTTP_GET, handleVcal)) return;
   if(serverOn(authAdmin, F("/command"), HTTP_GET, handleCommand)) return;
-  if(serverOn(authUser,  F("/list"), HTTP_GET, printDirectory)) return;
+  if(serverOn(authAdmin, F("/list"), HTTP_GET, printDirectory)) return;     // control plane (Files): see Docs/api.rst
   if(serverOn(authAdmin, F("/edit"), HTTP_DELETE, handleDelete)) return;
   if(serverOn(authAdmin, F("/edit"), HTTP_PUT, handleCreate)) return;
   if(serverOn(authUser,  F("/feed/list.json"), HTTP_GET, handleGetFeedList)) return;
@@ -121,7 +121,7 @@ void handleRequest(){
   if(serverOn(authAdmin, F("/auth"), HTTP_POST, handlePasswords)) return;
   if(serverOn(authUser,  F("/nullreq"), HTTP_GET, returnOK)) return;
   if(serverOn(authUser,  F("/query"), HTTP_GET, handleQuery)) return;
-  if(serverOn(authUser,  F("/DSTtest"), HTTP_GET, handleDSTtest)) return;
+  if(serverOn(authAdmin, F("/DSTtest"), HTTP_GET, handleDSTtest)) return;   // a diagnostic, not data
   if(serverOn(authAdmin, F("/update"), HTTP_GET, handleUpdate)) return;
 
 

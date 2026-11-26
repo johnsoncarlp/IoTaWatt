@@ -73,6 +73,14 @@ To build it yourself, see [Building](#building).
 
 `Firmware/test/README.md` describes the tests.
 
+## Integrations
+
+Home Assistant, Telegraf, Node-RED and scripts read the device through its data plane: `/status`,
+`/query` and `/feed/*`, documented in [Docs/api.rst](Docs/api.rst) (query parameters in
+[Docs/query.rst](Docs/query.rst)). Give them a **user** login: it reads measurements and status, never
+the configuration, passwords or files. Those are the control plane: the web interface, with the admin
+login. The data plane stays compatible: fields are added, never removed.
+
 ## Contributing
 
 Contributions from the community are expected and welcome. Use the **issues** for bugs, questions about
