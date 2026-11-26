@@ -28,15 +28,6 @@ class  CSVquery {
                             show,               // Query is show series
                             select};            // Query is select series
 
-        // enum        units   {Volts = 1,         // Measurement units
-        //                      Watts = 0,         // Values must match values in IotaScript.h (Will combine someday);
-        //                      Wh = 8,
-        //                      kWh = 6,
-        //                      Amps = 2,
-        //                      VA = 3,
-        //                      Hz = 4,
-        //                      PF = 7};
-
         enum        tUnits {tUnitsSeconds,      // time units 
                             tUnitsMinutes,
                             tUnitsHours,
@@ -111,6 +102,11 @@ class  CSVquery {
 
                 // Private functions
 
+        bool        parseRange();               // setup() helpers for select=
+        bool        parseGroup();
+        bool        parseOptions();
+        bool        parseColumns();
+        bool        parseColumn(String element, column* col);
         void        buildHeader();
         void        buildLine();
         void        printValue(const double value, const int8_t decimals);

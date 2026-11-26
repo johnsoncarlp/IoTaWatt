@@ -47,364 +47,292 @@ bool    CSVquery::setup(){
                 // query - show=series
 
     if(server.hasArg(F("show"))){
-        String arg = server.arg(F("show"));
-        if(arg.equalsIgnoreCase("series")){
-           _format = formatJson;
-           _query = show;
-            return true; 
+        if(server.arg(F("show")).equalsIgnoreCase("series")){
+            _format = formatJson;
+            _query = show;
+            return true;
         }
         return false;
     }
 
-                // query - select=[  ] 
+                // query - select=[  ]
 
-    else if (server.hasArg(F("select"))){
-    
-        if( ! (server.hasArg(F("begin")) && server.hasArg(F("end")) && server.hasArg(F("group")) )){
-            _failReason = F("Missing begin, end or group.");
+    if( ! server.hasArg(F("select"))) return false;
+    if( ! (server.hasArg(F("begin")) && server.hasArg(F("end")) && server.hasArg(F("group")) )){
+        _failReason = F("Missing begin, end or group.");
+        return false;
+    }
+    if( ! (parseRange() && parseGroup() && parseOptions() && parseColumns())) return false;
+
+    trace(T_CSVquery,19);
+    if(_header){
+        buildHeader();
+    }
+    if(_format == formatJson){
+        _buffer.print('[');
+    }
+    _oldRec = new IotaLogRecord;
+    _newRec = new IotaLogRecord;
+    _newRec->UNIXtime = _begin;
+    logReadKey(_newRec);
+    trace(T_CSVquery,20);
+    _startMs = millis();
+    _query = select;
+    return true;
+}
+
+        // begin and end, rounded inward to whole log intervals.
+
+bool    CSVquery::parseRange(){
+    _begin = parseTimeArg(server.arg(F("begin")));
+    if(_begin % Current_log.interval()){
+        _begin += Current_log.interval() - (_begin % Current_log.interval());
+    }
+    _end = parseTimeArg(server.arg(F("end")));
+    if(_end % Current_log.interval()){
+        _end -= _end % Current_log.interval();
+    }
+    trace(T_CSVquery,10);
+    return ! (_end == 0 || _begin == 0 || _end < _begin);
+}
+
+        // resolution (used by group=auto) and group: auto, all, or a count with a unit suffix
+        // (a bare count is seconds and must be a multiple of 5).
+
+bool    CSVquery::parseGroup(){
+    if(server.hasArg(F("resolution"))){
+        String arg = server.arg(F("resolution"));
+        if(arg.equalsIgnoreCase("low")) _highRes = false;
+        else if(arg.equalsIgnoreCase("high")) _highRes = true;
+        else {
+            _failReason = F("Invalid resolution");
             return false;
         }
-       
-        _begin = parseTimeArg(server.arg(F("begin")));
-        if(_begin % Current_log.interval()){
-            _begin += Current_log.interval() - (_begin % Current_log.interval());
-        }
-        _end = parseTimeArg(server.arg(F("end")));
-        if(_end % Current_log.interval()){
-            _end -= _end % Current_log.interval();
-        }
-        if(_end == 0 || _begin == 0 || _end < _begin) return false;
-        trace(T_CSVquery,10);
+    }
 
-        if(server.hasArg(F("resolution"))){
-            String arg = server.arg(F("resolution"));
-            if(arg.equalsIgnoreCase("low")){
-                _highRes = false;
+    trace(T_CSVquery,10);
+    String group = server.arg(F("group"));
+    if(group.equals("auto")){
+        const uint16_t intervals[] = {5, 10, 15, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400, 21600, 28800};
+        uint32_t rawInterval = (_end - _begin) / (_highRes ? 800 : 400);
+        _groupMult = 86400;
+        for(uint16_t interval : intervals){
+            if(rawInterval <= interval){
+                _groupMult = interval;
+                break;
             }
-            else if(arg.equalsIgnoreCase("high")){
-                _highRes = true;
-            }
-            else {
-                _failReason = F("Invalid resolution");
+        }
+        _groupUnits = tUnitsSeconds;
+    } else if(group.equals("all")){
+        _groupMult = _end - _begin;
+        _groupUnits = tUnitsSeconds;
+    } else {
+        static const char suffixes[] PROGMEM = "smhdwMy";      // in tUnits order
+        _groupMult = MAX(1, group.toInt());
+        char last = group.length() ? group[group.length() - 1] : 0;
+        int unit = -1;
+        for(int i = 0; i < 7 && unit < 0; i++){
+            if(pgm_read_byte(suffixes + i) == last) unit = i;
+        }
+        if(unit >= 0) _groupUnits = (tUnits)unit;
+        else if(_groupMult > 0 && _groupMult % 5 == 0) _groupUnits = tUnitsSeconds;
+        else {
+            _failReason = F("Invalid group");
+            return false;
+        }
+    }
+    if((_begin % 60 == 0) && (_end % 60 == 0) && (_groupUnits != tUnitsSeconds || _groupMult % 60 == 0)){
+        _integrations = true;
+    }
+    else if(_groupUnits == tUnitsSeconds && _begin >= Current_log.firstKey()){
+        _integrations = true;
+    }
+    return true;
+}
+
+        // missing, header, format and limit.
+
+bool    CSVquery::parseOptions(){
+    if(server.hasArg(F("missing"))){
+        String arg = server.arg(F("missing"));
+        _missingSkip = arg.equalsIgnoreCase("skip");
+        _missingNull = arg.equalsIgnoreCase("null");
+        _missingZero = arg.equalsIgnoreCase("zero");
+    }
+    if(server.hasArg(F("header"))){
+        String arg = server.arg(F("header"));
+        if(arg.equalsIgnoreCase("yes")) _header = true;
+        if(arg.equalsIgnoreCase("no")) _header = false;
+    }
+    if(server.hasArg(F("format"))){
+        String arg = server.arg(F("format"));
+        if(arg.equalsIgnoreCase("json")) _format = formatJson;
+        else if(arg.equalsIgnoreCase("CSV")) _format = formatCSV;
+        else {
+            _failReason = F("Invalid format");
+            return false;
+        }
+    }
+    if(server.hasArg(F("limit"))){
+        String arg = server.arg(F("limit"));
+        if (arg.equalsIgnoreCase("none")) {
+            _limit = -1;
+        }
+        else {
+            _limit = arg.toInt();
+            if(_limit == 0){
+                _failReason = F("Invalid limit");
                 return false;
             }
         }
+    }
+    trace(T_CSVquery,10);
+    return true;
+}
 
-        trace(T_CSVquery,10);
-        String group = server.arg(F("group"));
-        if(group.equals("auto")){
-            const uint16_t intervals[] = {5, 10, 15, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400, 21600, 28800};
-            uint32_t rawInterval = (_end - _begin) / (_highRes ? 800 : 400);
-            uint32_t interval = 86400;
-            for(int i=0; i<16; i++){
-                if(rawInterval <= intervals[i]){
-                    interval = intervals[i];
-                    break; 
-                }
+        // select=[name.method.method,...]: one column per element, in order. Inputs get a Script
+        // ("@n") so every column is computed the same way.
+
+bool    CSVquery::parseColumns(){
+    trace(T_CSVquery,12);
+    String array = server.arg(F("select"));
+    if( ! (array.startsWith("[") && array.endsWith("]"))){
+        _failReason = F("select not an array []");
+        return false;
+    }
+    array = array.substring(1,array.length()-1);
+
+    trace(T_CSVquery,13);
+    column** tail = &_columns;
+    while(array.length()){
+        String element;
+        int index = array.indexOf(',');
+        if(index == -1){
+            element = array;
+            array = "";
+        }
+        else {
+            element = array.substring(0,index);
+            array.remove(0,index+1);
+        }
+        if(element.length() == 0 || element[0] == '.') continue;    // empty element, e.g. select=[,time]
+        column* col = new column;
+        *tail = col;                                // linked before parsing, so ~CSVquery frees it on failure
+        tail = &col->next;
+        if( ! parseColumn(element, col)) return false;
+        if(col->source == 'I'){
+            char newscript[4];
+            snprintf(newscript,4,"@%d",col->input);
+            col->script = new Script(inputChannel[col->input]->_name, unitstr(col->unit), newscript);
+        }
+        trace(T_CSVquery,17);
+    }
+    if( ! _columns){
+        _failReason = F("No series selected");
+        return false;
+    }
+    if(_columns->next == nullptr && _columns->source == 'T'){
+        _timeOnly = true;
+    }
+    return true;
+}
+
+        // One element: the series (time, an input or an output) and its methods (time format;
+        // units, which also set the decimals; dN for N decimals).
+
+bool    CSVquery::parseColumn(String element, column* col){
+    String name = element;
+    int period = element.indexOf('.');
+    if(period != -1){
+        name.remove(period);
+        element.remove(0,period+1);
+        element.toLowerCase();
+    } else {
+        element = "";
+    }
+
+    if(name.equalsIgnoreCase("time")){
+        col->source = 'T';
+        col->timeFormat = iso;
+        col->timeLocal = true;
+    }
+    if(col->source == ' '){
+        trace(T_CSVquery,14);
+        for(int j=0; j<maxInputs; j++){
+            if(inputChannel[j]->isActive() && name.equals(inputChannel[j]->_name)){
+                col->source = 'I';
+                col->unit = inputChannel[j]->_type == channelTypeVoltage ? Volts : Watts;
+                col->input = inputChannel[j]->_channel;
+                break;
             }
-            _groupMult = interval;
-            _groupUnits = tUnitsSeconds;
-        } else if(group.equals("all")){
-            _groupMult = _end - _begin;
-            _groupUnits = tUnitsSeconds;
+        }
+    }
+    if(col->source == ' '){
+        trace(T_CSVquery,16);
+        for(Script* script = outputs->first(); script; script = script->next()){
+            if(name.equals(script->name())){
+                col->source = 'O';
+                if(strcmp(script->getUnits(),"Volts") == 0) col->unit = Volts;
+                else if(strcmp(script->getUnits(),"Watts") == 0) col->unit = Watts;
+                else col->decimals = script->precision();
+                col->script = script;
+                break;
+            }
+        }
+    }
+    if(col->source == ' '){
+        _failReason = String(F("Invalid series: ")) + name;
+        return false;
+    }
+
+    struct unitMethod { char name[6]; units unit; int8_t decimals; };
+    static const unitMethod unitMethods[] PROGMEM = {
+        {"volts", Volts, 1}, {"watts", Watts, 1}, {"wh", Wh, 0}, {"amps", Amps, 1}, {"va", VA, 1},
+        {"hz", Hz, 2}, {"pf", PF, 1}, {"var", VAR, 1}, {"varh", VARh, 0}
+    };
+    while(element.length()){
+        String method = element;
+        period = element.indexOf('.');
+        if(period != -1){
+            method.remove(period);
+            element.remove(0,period+1);
         } else {
-            _groupMult = MAX(1, group.toInt());
-            if(group.endsWith("s")) _groupUnits = tUnitsSeconds;
-            else if(group.endsWith("m")) _groupUnits = tUnitsMinutes;
-            else if(group.endsWith("h")) _groupUnits = tUnitsHours;
-            else if(group.endsWith("d")) _groupUnits = tUnitsDays;
-            else if(group.endsWith("w")) _groupUnits = tUnitsWeeks;
-            else if(group.endsWith("M")) _groupUnits = tUnitsMonths;
-            else if(group.endsWith("y")) _groupUnits = tUnitsYears;
-            else if(_groupMult > 0 && _groupMult % 5 == 0) _groupUnits = tUnitsSeconds;
+            element = "";
+        }
+        if(method.length() == 0) continue;
+
+        if(col->source == 'T'){
+            if(method.equals("local")) col->timeLocal = true;
+            else if(method.equals("utc")) col->timeLocal = false;
+            else if(method.equals("iso")) col->timeFormat = iso;
+            else if(method.equals("unix")) col->timeFormat = unix;
             else {
-                _failReason = F("Invalid group");
+                _failReason = String(F("invalid time method: ")) + method;
                 return false;
             }
+            continue;
         }
-        if((_begin % 60 == 0) && (_end % 60 == 0) && (_groupUnits != tUnitsSeconds || _groupMult % 60 == 0)){
-            _integrations = true;
-        }
-        else if(_groupUnits == tUnitsSeconds && _begin >= Current_log.firstKey()){
-            _integrations = true;
-        }
-
-        if(server.hasArg(F("missing"))){
-            String arg = server.arg(F("missing"));
-            _missingSkip = (arg.equalsIgnoreCase("skip")) ? true : false;
-            _missingNull = (arg.equalsIgnoreCase("null")) ? true : false;
-            _missingZero = (arg.equalsIgnoreCase("zero")) ? true : false;
-        }
-        if(server.hasArg(F("header"))){
-            String arg = server.arg(F("header"));
-            if(arg.equalsIgnoreCase("yes")) _header = true;
-            if(arg.equalsIgnoreCase("no")) _header = false;
-        }
-        if(server.hasArg(F("format"))){
-            String arg = server.arg(F("format"));
-            if(arg.equalsIgnoreCase("json")){
-                _format = formatJson;
-            }
-            else if(arg.equalsIgnoreCase("CSV")){
-                _format = formatCSV;
-            }
-            else {
-                _failReason = F("Invalid format");
-                return false;
+        bool found = false;
+        for(const unitMethod& entry : unitMethods){
+            unitMethod m;
+            memcpy_P(&m, &entry, sizeof m);
+            if(method.equals(m.name)){
+                col->unit = m.unit;
+                col->decimals = m.decimals;
+                found = true;
+                break;
             }
         }
-
-        if(server.hasArg(F("limit"))){
-            String arg = server.arg(F("limit"));
-            if (arg.equalsIgnoreCase("none")) {
-                _limit = -1;
-            }
-            else {
-                _limit = arg.toInt();
-                if(_limit == 0){
-                    _failReason = F("Invalid limit");
-                    return false;
-                }
-            }
+        if(found) continue;
+        if(method.startsWith("d")){
+            if(method.length() != 2 || method[1] < '0' || method[1] > '9') return false;
+            col->decimals = method[1] - '0';
+            continue;
         }
-        
-        trace(T_CSVquery,10);
-
-            // Parse the columns array and build list of column table entries.
-
-        trace(T_CSVquery,12);
-        String array = server.arg(F("select"));
-        if( ! (array.startsWith("[") && array.endsWith("]"))){
-            _failReason = F("select not an array []");
-            return false;
-        }
-        array = array.substring(1,array.length()-1);
-
-        String header;
-        trace(T_CSVquery,13);
-        while(array.length()){
-
-                // Add a column to the list
-
-            column* col = new column;
-            col->next = _columns;
-            _columns = col;
-            
-                // Parse the next element from the array
-
-            trace(T_CSVquery,13);
-            String element;
-            int index = array.indexOf(',');
-            if(index == -1){
-                element = array;
-                array = "";
-            }
-            else {
-                element = array.substring(0,index);
-                array.remove(0,index+1);
-            }
-
-                // Parse the name of the element
-            
-            trace(T_CSVquery,13);
-            String name = element;
-            int period = element.indexOf('.');
-            if(period != -1){
-                name.remove(period);
-                element.remove(0,period+1);
-                element.toLowerCase();
-            } else {
-                element = "";
-            }
-            if(name.length() == 0){             // empty element, e.g. select=[,time]: drop its column
-                _columns = col->next;
-                col->next = nullptr;
-                delete col;
-                continue;
-            }
-
-            if(name.equalsIgnoreCase("time")){
-                col->source = 'T';
-                col->timeFormat = iso;
-                col->timeLocal = true;
-            }
-            
-            if(col->source == ' '){
-                trace(T_CSVquery,14);
-                for(int j=0; j<maxInputs; j++){
-                    if(inputChannel[j]->isActive() && name.equals(inputChannel[j]->_name)){
-                        col->source = 'I';
-                        if(inputChannel[j]->_type == channelTypeVoltage){
-                            col->unit = Volts;
-                        } else {
-                            col->unit = Watts;
-                        }
-                        col->input = inputChannel[j]->_channel;
-                        break;
-                    }
-                }
-            }
-
-            if(col->source == ' '){
-                trace(T_CSVquery,16);
-                Script* script = outputs->first();
-                while(script){
-                    if(name.equals(script->name())){
-                        col->source = 'O';
-                        if(strcmp(script->getUnits(),"Volts") == 0){
-                            col->unit = Volts;
-                        }
-                        else if(strcmp(script->getUnits(),"Watts") == 0){
-                            col->unit = Watts;
-                        }
-                        else col->decimals = script->precision();
-                        col->script = script;
-                        break;
-                    } 
-                    script = script->next(); 
-                }  
-            }
-
-            if(col->source == ' '){
-                _failReason = String(F("Invalid series: ")) + name;
-                return false;
-            }
-
-                // Process any methods
-
-            while(element.length()){
-                String method = element;
-                period = element.indexOf('.');
-                if(period != -1){
-                    method.remove(period);
-                    element.remove(0,period+1);
-                } else {
-                    element = "";
-                }
-                if(method.length() == 0) continue;
-
-                if(col->source == 'T'){
-                    if(method.equals("local")) col->timeLocal = true;
-                    else if(method.equals("utc")) col->timeLocal = false;
-                    else if(method.equals("iso")) col->timeFormat = iso;
-                    else if(method.equals("unix")) col->timeFormat = unix;
-                    else {
-                        _failReason = String(F("invalid time method: ")) + method;
-                        return false;
-                    }
-                }
-
-                else if(method.equalsIgnoreCase("volts")){
-                    col->unit = Volts;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("watts")){
-                    col->unit = Watts;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("wh")){
-                    col->unit = Wh;
-                    col->decimals = 0;
-                }
-                else if(method.equalsIgnoreCase("amps")){
-                    col->unit = Amps;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("va")){
-                    col->unit = VA;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("hz")){
-                    col->unit = Hz;
-                    col->decimals = 2;
-                }
-                else if(method.equalsIgnoreCase("pf")){
-                    col->unit = PF;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("var")){
-                    col->unit = VAR;
-                    col->decimals = 1;
-                }
-                else if(method.equalsIgnoreCase("varh")){
-                    col->unit = VARh;
-                    col->decimals = 0;
-                }
-                else if(method.startsWith("d")){
-                    if(method.length() != 2 | method[1] < '0' | method[1] > '9') return false;
-                    col->decimals = method[1] - '0';
-                }
-                else {
-                    _failReason = String(F("Invalid series method: ")) + method;
-                    return false;
-                }
-            }
-            trace(T_CSVquery,17);
-        }
-
-            // Convert list from LIFO to FIFO and create Scripts for inputs
-
-        column* col = _columns;
-        column* prev = nullptr;
-        while(col){
-            if(col->source == 'I'){
-                int input = col->input;
-                char newscript[4];
-                snprintf(newscript,4,"@%d",input);
-                col->script = new Script(inputChannel[input]->_name, unitstr(col->unit), newscript);
-            }
-
-            column* next = col->next;
-            col->next = prev;
-            prev = col;
-            col = next;
-        }
-        _columns = prev;
-        if( ! _columns){
-            _failReason = F("No series selected");
-            return false;
-        }
-        if(_columns->next == nullptr && _columns->source == 'T'){
-            _timeOnly = true;
-        }
-
-        // Display the columns
-
-        trace(T_CSVquery,18);
-        col = _columns;
-        while(col){
-            String name;
-            if(col->source == 'I'){
-                name = inputChannel[col->input]->_name;
-            }
-            if(col->source == 'O'){
-                name = col->script->name();
-            }
-            col = col->next;
-        }
-
-        trace(T_CSVquery,19);
-        if(_header){
-            buildHeader();
-        }
-        if(_format == formatJson){
-            _buffer.print('[');
-        }
-        _oldRec = new IotaLogRecord;
-        _newRec = new IotaLogRecord;
-        _newRec->UNIXtime = _begin;
-        logReadKey(_newRec);
-        trace(T_CSVquery,20);
-        _startMs = millis();
-        _query = select;
-        return true;
-    }
-
-    // unrecognized query (not show or select)
-
-    else {
+        _failReason = String(F("Invalid series method: ")) + method;
         return false;
     }
+    return true;
 }
 
 const char*  CSVquery::unitstr(units units){
