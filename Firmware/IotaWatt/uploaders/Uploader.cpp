@@ -378,10 +378,11 @@ bool Uploader::config(const char *jsonConfig)
     if (configCB(config))
     {
         trace(T_uploader,105);    
-        if(_state == initialize_s) {
-            trace(T_uploader,105);
+        if( ! _serviceStarted) {              // not on _state: a second config before the
+            trace(T_uploader,105);              // service first ran started a second one (B100)
             serviceBlock *sb = NewService(uploader_dispatch, T_uploader);
             sb->serviceParm = (void *)this;
+            _serviceStarted = true;
         }
         trace(T_uploader,106);
         return true;

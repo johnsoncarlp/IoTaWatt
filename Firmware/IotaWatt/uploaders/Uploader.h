@@ -45,7 +45,8 @@ class Uploader
                     _script(0),
                     _stop(false),
                     _end(false),
-                    _useProxyServer(true)
+                    _useProxyServer(true),
+                    _serviceStarted(false)
                     
                     {};
         
@@ -130,6 +131,7 @@ class Uploader
         bool _stop;
         bool _end;
         bool _useProxyServer;
+        bool _serviceStarted;       // its service exists: config() starts it once (B100)
 
         uint32_t _lastSent;
         uint32_t _lastPost;

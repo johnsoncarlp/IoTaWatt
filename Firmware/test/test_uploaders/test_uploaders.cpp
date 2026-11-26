@@ -466,6 +466,19 @@ static void test_emoncms_reconfig_no_leak(void){
   hostServices.clear(); hostLog.clear();
 }
 
+// B100: configured twice before its service first ran: still one service, not two dispatchers.
+static void test_one_service_per_uploader(void){
+  size_t before = hostServices.size();
+  influxDB_uploader* u = new influxDB_uploader;
+  TEST_ASSERT_TRUE(u->config(influxV1Config(1).c_str()));
+  TEST_ASSERT_TRUE(u->config(influxV1Config(2).c_str()));
+  TEST_ASSERT_TRUE(u->config(influxV1Config(3).c_str()));
+  TEST_ASSERT_EQUAL_INT(1, (int)(hostServices.size() - before));
+  delete u;
+  while(hostServices.size() > before){ delete hostServices.back(); hostServices.pop_back(); }
+  hostLog.clear();
+}
+
 // Bad server replies: random codes and bodies must not crash or wedge the uploaders.
 static void test_fuzz_server_replies(void){
   uint32_t seed = 77;
@@ -518,6 +531,7 @@ int main(int, char**){
   RUN_TEST(test_end_frees_everything);
   RUN_TEST(test_reconfig_without_outputs_then_end);
   RUN_TEST(test_emoncms_reconfig_no_leak);
+  RUN_TEST(test_one_service_per_uploader);
   RUN_TEST(test_fuzz_server_replies);
   return UNITY_END();
 }
