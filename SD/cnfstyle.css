@@ -203,3 +203,31 @@
 }
 .calcInputDropdown-content p:hover { background: var(--bs-secondary-bg); }
 
+/****************************** Graph+ (graph2.htm) ******************************/
+
+.graph-title { font-size: 1.25rem; font-weight: 600; margin: 0 0 .75rem; }
+.graph-side-heading { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+                      color: var(--bs-secondary-color); margin-bottom: .4rem; }
+@media (min-width: 992px) {
+  #sidebar-wrapper { position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }
+  #sidebar-wrapper .offcanvas-body { padding: .75rem; background: var(--bs-tertiary-bg) !important;
+                                     border: var(--bs-border-width) solid var(--bs-border-color);
+                                     border-radius: var(--bs-border-radius-lg); }
+}
+
+/* Source list: one row per source; a selected one shows its colour and a remove icon. */
+#source-table table { width: 100%; border-collapse: separate; border-spacing: 0 2px; }
+.source-table-entry { padding: .3rem .5rem; cursor: pointer; border-radius: var(--bs-border-radius); }
+.source-table-entry:hover { background: var(--bs-secondary-bg); }
+#source-table .feed-delete { width: 2rem; text-align: center; color: #fff; border-radius: var(--bs-border-radius); }
+
+.graph-bound { width: 100%; }
+#placeholder .flot-text, #placeholder .legend { color: var(--bs-body-color); }
+#placeholder .legend table { color: var(--bs-body-color); }
+
+.graph-table-scroll { overflow-x: auto; }
+.data-table td, .data-table th { text-align: center; vertical-align: middle; white-space: nowrap; }
+.data-table .table-input { width: 6rem; padding: .1rem .3rem; border: var(--bs-border-width) solid var(--bs-border-color);
+                           border-radius: var(--bs-border-radius-sm); background: var(--bs-body-bg); color: var(--bs-body-color); }
+.move-feed, .feed-delete { cursor: pointer; }
+#csv { min-height: 12rem; }

@@ -11,7 +11,6 @@ var response = {}; // raw response from last data query
 var loading = false; // semaphores used to control asynchronous data query
 var reload = false;
 var refreshTimer;
-var selectedunitcolor = "#00a1d8"; // Color to be used for selected unit
 var embed = false; // embedded graph i.e. only displays graph placeholder
 
 var path = ""; //https://" + location.host; // used to call home
@@ -112,16 +111,22 @@ var units = [
   },
 ];
 
+// A colour from the page theme (light or dark), for the chart
+
+function themeColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || null;
+}
+
 // Build unit select buttons
 
 function build_units_selector() {
   var html = "";
   for (u in units) {
-    html += "<button class='btn-default unit-buttons'";
+    html += "<button class='btn btn-sm btn-outline-primary unit-buttons";
     if (units[u].unit == unit) {
-      html += " style='background:" + selectedunitcolor + "'";
+      html += " active";
     }
-    html += ">" + units[u].unit + "</button>";
+    html += "'>" + units[u].unit + "</button>";
   }
   $("#units-select").html(html);
 }
@@ -135,8 +140,8 @@ function unitindex(unit) {
 // Handle unit select button click
 
 $("body").on("click", ".unit-buttons", function() {
-  $(".unit-buttons").css("background", "white");
-  $(this).css("background", selectedunitcolor);
+  $(".unit-buttons").removeClass("active");
+  $(this).addClass("active");
   unit = $(this).html();
   build_source_list();
 });
@@ -304,38 +309,69 @@ function unitFormat(val, unit) {
 //        indicate custom period and graph-reload on change by user (explicit or implicit)
 //********************************************************************************************
 
-var widgetOpen = false;
-$("#datetimepicker1").datetimepicker({
-  format: "MMM D,YYYY h:mm a",
-});
-$("#datetimepicker2").datetimepicker({
-  format: "MMM D,YYYY h:mm a",
-  useCurrent: false,
-});
-$("#datetimepicker1").on("dp.change", function(e) {
-  $("#datetimepicker2").data("DateTimePicker").minDate(e.date);
-  if (userDateChange) {
-    custom_dates = true;
-  }
-});
-$("#datetimepicker2").on("dp.change", function(e) {
-  $("#datetimepicker1").data("DateTimePicker").maxDate(e.date);
-  if (userDateChange) {
-    custom_dates = true;
-  }
-});
-$("#datetimepicker1,#datetimepicker2").on("dp.show", function(e) {
-  widgetOpen = true;
-});
-$("#datetimepicker1,#datetimepicker2").on("dp.hide", function(e) {
-  widgetOpen = false;
-  if (custom_dates) {
-    query();
-  }
-});
+// The begin and end fields are the browser's own date-time inputs. DateInput keeps the exact time
+// (to the second, as the server returns it) and offers the few calls of the old DateTimePicker that
+// this page uses: date(), minDate(), maxDate() and viewDate(), whose value has format("x") (ms),
+// diff(other, "seconds") and toJSON() (saved graphs store it as an ISO string).
 
-var beginDate = $("#datetimepicker1").data("DateTimePicker");
-var endDate = $("#datetimepicker2").data("DateTimePicker");
+function TimeValue(d) { this.d = d; }
+TimeValue.prototype.format = function(f) { return f == "x" ? String(this.d.getTime()) : formatDate(this.d, f); };
+TimeValue.prototype.diff = function(other) { return Math.round((this.d - other.d) / 1000); };
+TimeValue.prototype.toJSON = function() { return this.d.toJSON(); };
+
+function DateInput(id) {
+  var input = document.getElementById(id);
+  var current = new Date();
+  function local(d) {
+    return formatDate(d, "YYYY-MM-DD") + "T" + formatDate(d, "HH:mm");
+  }
+  this.input = input;
+  this.date = function(d) { current = new Date(d); input.value = local(current); };
+  this.minDate = function(d) { input.min = local(new Date(d)); };
+  this.maxDate = function(d) { input.max = local(new Date(d)); };
+  this.viewDate = function() { return new TimeValue(current); };
+  this.fromInput = function() {
+    var d = new Date(input.value);                        // "YYYY-MM-DDTHH:mm" is local time
+    if (isNaN(d)) return false;
+    current = d;
+    return true;
+  };
+}
+
+// Tooltip time, e.g. "5:17 PM Wed, Nov 25", in the browser's language
+function tooltipTime(d) {
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " " +
+    d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
+// "YYYY-MM-DD", "HH:mm", "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD_HHmm": the formats this page uses
+function formatDate(d, f) {
+  function p(n) { return n < 10 ? "0" + n : "" + n; }
+  return f.replace("YYYY", d.getFullYear()).replace("MM", p(d.getMonth() + 1)).replace("DD", p(d.getDate()))
+    .replace("HH", p(d.getHours())).replace("mm", p(d.getMinutes())).replace("ss", p(d.getSeconds()));
+}
+
+var beginDate = new DateInput("request-start");
+var endDate = new DateInput("request-end");
+
+// A date the user changed: a custom period, graphed once the field is left alone for a moment.
+var dateTimer = null;
+function dateChanged(which, other, setLimit) {
+  if (!which.fromInput()) return;
+  setLimit.call(other, which.viewDate().d);
+  // A typed date isn't held to min/max like a picked one: don't query a reversed range.
+  if (beginDate.viewDate().d >= endDate.viewDate().d) {
+    clearTimeout(dateTimer);
+    $("#error").text("The start must be before the end.").show();
+    return;
+  }
+  $("#error").hide();
+  custom_dates = true;
+  clearTimeout(dateTimer);
+  dateTimer = setTimeout(query, 600);
+}
+beginDate.input.addEventListener("change", function() { dateChanged(beginDate, endDate, endDate.minDate); });
+endDate.input.addEventListener("change", function() { dateChanged(endDate, beginDate, beginDate.maxDate); });
 
 function set_custom_dates(begin, end) {
   userDateChange = false;
@@ -441,9 +477,9 @@ $("#placeholder").bind("plothover", function(event, pos, item) {
       dispValue +
       dispStackValue +
       "<br><span style='font-size:11px'>" +
-      moment.unix(item.datapoint[0] / 1000).format("H:mm ddd, MMM D") +
+      tooltipTime(new Date(item.datapoint[0])) +
       "</span>",
-      "#fff"
+      themeColor("--bs-body-bg")
     );
   }
 });
@@ -455,10 +491,12 @@ function tooltip(x, y, contents, bgColour) {
       position: "absolute",
       display: "none",
       "font-weight": "bold",
-      border: "1px solid rgb(255, 221, 221)",
-      padding: "2px",
+      border: "1px solid " + themeColor("--bs-border-color"),
+      "border-radius": "4px",
+      padding: "2px 6px",
+      color: themeColor("--bs-body-color"),
       "background-color": bgColour,
-      opacity: "0.8",
+      opacity: "0.9",
     })
     .appendTo("body")
     .fadeIn(200);
@@ -482,9 +520,6 @@ function tooltip(x, y, contents, bgColour) {
 //********************************************************************************************
 
 $(window).resize(function() {
-  if (!queryParameters.has("embed")) {
-    sidebar_resize();
-  }
   graph_resize();
   graph();
 });
@@ -526,7 +561,7 @@ $("#downloadcsv").click(function() {
   );
   element.setAttribute(
     "download",
-    "iotawatt_" + moment().format("YYYY-MM-DD_HHmm") + ".csv"
+    "iotawatt_" + formatDate(new Date(), "YYYY-MM-DD_HHmm") + ".csv"
   );
   element.style.display = "none";
   document.body.appendChild(element);
@@ -703,7 +738,7 @@ function build_source_list() {
             f +
             " style='background:" +
             feedlist[f].color +
-            "'><i class='glyphicon glyphicon-trash'></i></td>";
+            "'><i class='ico ico-trash3'></i></td>";
           selected = true;
         }
       }
@@ -737,36 +772,6 @@ function assign_color() {
   return "#000000";
 }
 
-//********************************************************************************************
-//        Sidebar open, close, resize
-//********************************************************************************************
-
-$("#sidebar-open").click(function() {
-  $("#sidebar-wrapper").css("left", "250px");
-  $("#sidebar-close").show();
-});
-
-$("#sidebar-close").click(function() {
-  $("#sidebar-wrapper").css("left", "0");
-  $("#sidebar-close").hide();
-});
-
-function sidebar_resize() {
-  var width = $(window).width();
-  var height = $(window).height();
-  $("#sidebar-wrapper").height(height);
-
-  if (width < 1024) {
-    $("#sidebar-wrapper").css("left", "0");
-    $("#wrapper").css("padding-left", "0");
-    $("#sidebar-open").show();
-  } else {
-    $("#sidebar-wrapper").css("left", "250px");
-    $("#wrapper").css("padding-left", "250px");
-    $("#sidebar-open").hide();
-    $("#sidebar-close").hide();
-  }
-}
 
 //********************************************************************************************
 //            query() - initiate asynchronous query for all graph data
@@ -860,7 +865,7 @@ function query() {
       if (!valid)
         errorstr +=
         "<div class='alert alert-danger'><b>Request error</b> " +
-        data_in +
+        $("<span>").text(data_in).html() +            // the device's reply is text, not HTML
         "</div>";
 
       if (errorstr != "") {
@@ -888,6 +893,11 @@ function query() {
         }
         $("#select-group").children(":first").html(autolabel);
         $("#error").hide();
+        if (response.limit) {                            // cut short by the row limit or the time limit (B87)
+          $("#error").text("Data shown up to " + new Date(response.limit * 1000).toLocaleString() +
+            (response.timeout ? ": the device's time limit for one query was reached." : ": the row limit was reached.") +
+            " Zoom in, or choose a coarser group.").show();
+        }
 
         graph();
       }
@@ -919,8 +929,9 @@ function graph() {
 
   var options = {
     lines: { fill: false },
-    grid: { hoverable: true, clickable: true },
-    legend: { show: showLegend, position: "nw", sorted: "reverse" },
+    grid: { hoverable: true, clickable: true, color: themeColor("--bs-secondary-color"),
+            borderColor: themeColor("--bs-border-color") },
+    legend: { show: showLegend, position: "nw", sorted: "reverse", backgroundColor: themeColor("--bs-body-bg") },
     toggle: { scale: "visible" },
     touch: { pan: "x", scale: "x" },
     xaxis: {
@@ -1061,19 +1072,19 @@ function build_options_table() {
         line +=
           "<a class='move-feed' title='Move up' feedid=" +
           z +
-          " moveby=-1 ><i class='glyphicon glyphicon-arrow-up'></i></a>";
+          " moveby=-1 ><i class='ico ico-arrow-up'></i></a>";
       }
       if (z < feedlist.length - 1) {
         line +=
           "<a class='move-feed' title='Move down' feedid=" +
           z +
-          " moveby=1 ><i class='glyphicon glyphicon-arrow-down'></i></a>";
+          " moveby=1 ><i class='ico ico-arrow-down'></i></a>";
       }
       line += "</td>";
       line +=
         "<td><span class='feed-delete' feedindex=" +
         z +
-        "><i class='glyphicon glyphicon-trash'></i></td>";
+        "><i class='ico ico-trash3'></i></td>";
       line +=
         "<td style='text-align:left'>" +
         feedlist[z].unit +
@@ -1141,18 +1152,18 @@ function build_stats_table() {
         line +=
           "<a class='move-feed' title='Move up' feedid=" +
           z +
-          " moveby=-1 ><i class='glyphicon glyphicon-arrow-up'></i></a>";
+          " moveby=-1 ><i class='ico ico-arrow-up'></i></a>";
       }
       if (z < feedlist.length - 1) {
         line +=
           "<a class='move-feed' title='Move down' feedid=" +
           z +
-          " moveby=1 ><i class='glyphicon glyphicon-arrow-down'></i></a>";
+          " moveby=1 ><i class='ico ico-arrow-down'></i></a>";
       }
       line +=
         "<td><span class='feed-delete' feedindex=" +
         z +
-        "><i class='glyphicon glyphicon-trash'></i></td>";
+        "><i class='ico ico-trash3'></i></td>";
       line +=
         "<td style='text-align:left'>" +
         feedlist[z].unit +
@@ -1287,7 +1298,7 @@ function build_CSV() {
     } else if (timeformat == "seconds") {
       line += response.data[i][0] - start_time;
     } else if (timeformat == "datestr") {
-      line += moment(response.data[i][0] * 1000).format("YYYY-MM-DD HH:mm:ss");
+      line += formatDate(new Date(response.data[i][0] * 1000), "YYYY-MM-DD HH:mm:ss");
     }
 
     for (var f in feedlist) {
@@ -1372,12 +1383,23 @@ $("#graph-select").change(function() {
     return;
   }
 
+  if (savedgraphs[index].legacy) {
+    $("#graph-name").val(savedgraphs[index].legacy.name);
+    applyContext(legacyContext(savedgraphs[index].legacy));
+    $("#error").text("Converted from the original Graph page. Save keeps it as a Graph+ graph; " +
+                     "Delete removes the original.").show();
+    return;
+  }
+
   $.ajax({
     url: path + "/graphs/" + savedgraphs[index].id,
     async: true,
     dataType: "json",
-    success: function(result) {
-      var context = result;
+    success: function(result) { applyContext(result); },
+  });
+});
+
+function applyContext(context) {
       period = context.period;
       build_period_selector();
 
@@ -1405,9 +1427,7 @@ $("#graph-select").change(function() {
       }
       loading = false;
       query();
-    },
-  });
-});
+}
 
 $("#graph-save").click(function() {
   var name = $("#graph-name").val();
@@ -1478,7 +1498,7 @@ $("#graph-name").keyup(function() {
 $("#graph-delete").click(function() {
   var name = $("#graph-name").val();
   for (var z in savedgraphs) {
-    if (savedgraphs[z].name == name) {
+    if (savedgraphs[z].name == name || (savedgraphs[z].legacy && savedgraphs[z].legacy.name == name)) {
       graph_delete(savedgraphs[z].id);
       $("#graph-name").val("");
       $("#graph-delete").hide();
@@ -1493,18 +1513,47 @@ function graph_load_savedgraphs(callback) {
     dataType: "json",
     success: function(result) {
       savedgraphs = result;
-
-      var out = "<option selected=true>Select graph:</option>";
-      for (var z in savedgraphs) {
-        var name = savedgraphs[z].name;
-        out += "<option>" + name + "</option>";
-      }
-      $("#graph-select").html(out);
-      if (callback) {
-        callback();
-      }
+      // Graphs saved with the original Graph page (retired): listed too, converted when opened (B83).
+      $.ajax({
+        url: path + "/graph/getall",
+        async: true,
+        dataType: "json",
+        success: function(old) {
+          for (var i in old) {
+            if (old[i] && old[i].name && old[i].id !== undefined) {
+              savedgraphs.push({ name: old[i].name + LEGACY_SUFFIX, id: old[i].id, legacy: old[i] });
+            }
+          }
+        },
+        complete: function() {
+          var select = $("#graph-select").empty().append($("<option selected>").text("Select graph:"));
+          for (var z in savedgraphs) select.append($("<option>").text(savedgraphs[z].name));
+          if (callback) callback();
+        },
+      });
     },
   });
+}
+
+var LEGACY_SUFFIX = " (original Graph page)";
+
+// A graph saved by the original Graph page as a Graph+ context: its feeds (the second letter of a feed
+// id is the kind: V volts, P power, E energy), its dates (a "floating" graph keeps its length, ending
+// now), automatic grouping.
+function legacyContext(g) {
+  var unitOf = { V: "Volts", P: "Watts", E: "Wh" };
+  var list = [];
+  for (var i in g.feedlist || []) {
+    var f = g.feedlist[i];
+    var u = unitOf[String(f.id || "").charAt(1)];
+    if (!u || !f.name) continue;
+    list.push({ name: f.name, unit: u, color: f.color || assign_color(), fill: !!f.fill, stack: false,
+                scale: f.scale || 1, accrue: false, dp: units[unitindex(u)].dp, plottype: "Line" });
+  }
+  var end = g.floatingtime ? Date.now() : g.end;
+  var begin = end - (g.end - g.start);
+  return { period: "custom dates", group: "auto", unit: list.length ? list[0].unit : "Watts",
+           beginDate: new Date(begin).toJSON(), endDate: new Date(end).toJSON(), feedlist: list, yaxes: [] };
 }
 
 function graph_delete(id) {
@@ -1522,47 +1571,14 @@ function graph_delete(id) {
   graph_load_savedgraphs();
 }
 
-//********************************************************************************************
-// Sidebar
-//********************************************************************************************
-
-$("#sidebar-open").click(function() {
-  $("#sidebar-wrapper").css("left", "250px");
-  $("#sidebar-close").show();
-});
-
-$("#sidebar-close").click(function() {
-  $("#sidebar-wrapper").css("left", "0");
-  $("#sidebar-close").hide();
-});
-
-function sidebar_resize() {
-  var width = $(window).width();
-  var height = $(window).height();
-  $("#sidebar-wrapper").height(height - 41);
-
-  if (width < 1024) {
-    $("#sidebar-wrapper").css("left", "0");
-    $("#wrapper").css("padding-left", "0");
-    $("#sidebar-open").show();
-  } else {
-    $("#sidebar-wrapper").css("left", "250px");
-    $("#wrapper").css("padding-left", "250px");
-    $("#sidebar-open").hide();
-    $("#sidebar-close").hide();
-  }
-}
 
 //********************************************************************************************
 //            INITIALIZE - Onetime startup sequence
 //********************************************************************************************
 
 function initialize() {
-  moment().format(); // Initialize moment
-  setTitle(); // Set the document title, async not critical
   build_units_selector();
   query_series_list();
-  sidebar_resize();
   $("#graph-reset").click();
   $(".initHide").show();
   var validGraph = true;
@@ -1588,8 +1604,6 @@ function initialize() {
   if (queryParameters.has("embed")) {
     embed = true;
     $(".embed").hide();
-    $("#sidebar-close").click();
-    $("#wrapper").css("padding-left", "0");
     $("#placeholder").off("plotselected");
     if (!queryParameters.has("graph")) {
       alert("embed specified with no graph parameter.");
@@ -1598,19 +1612,6 @@ function initialize() {
   graph_resize();
 }
 
-function setTitle() {
-  $.ajax({
-    url: path + "/status?device=yes",
-    async: true,
-    dataType: "json",
-    success: function(result) {
-      var title = result.device.name + " " + $("#title").html();
-      var title_link = "<a href='/'>" + result.device.name + "</a> " + $("#title").html();
-      document.title = title;
-      $("#title").html(title_link);
-    },
-  });
-}
 
 function query_series_list() {
   $.ajax({
