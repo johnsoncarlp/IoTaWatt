@@ -11,6 +11,7 @@
 #include "splitstr.cpp"
 #include "iotaInputChannel.cpp"
 #include "uploaders/Uploader.cpp"
+#include "uploaders/influxBase.cpp"
 #include "uploaders/influxDB_uploader.cpp"
 #include "CSVquery.cpp"
 #include "webGuard.cpp"

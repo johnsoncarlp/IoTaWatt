@@ -6,24 +6,20 @@
 #else
 #include "IotaWatt.h"
 #endif
-#include "Uploader.h"
+#include "influxBase.h"
 
 extern uint32_t influxDB_v2_dispatch(struct serviceBlock *serviceBlock);
 extern Uploader*influxDB_v2;
 
-class influxDB2_uploader: public Uploader
+class influxDB2_uploader : public influxBase
 {
     public:
-        influxDB2_uploader(): 
-            _tagSet(0),
+        influxDB2_uploader():
+            influxBase(T_influx2),
             _lookbackHours(0),
             _orgID(0),
             _bucket(0),
-            _token(0),
-            _measurement(0),
-            _fieldKey(0),
-            _staticKeySet(false),
-            _heap(false)
+            _token(0)
         {
             _id = charstar("influxDB2");
         };
@@ -32,10 +28,7 @@ class influxDB2_uploader: public Uploader
             delete[] _orgID;
             delete[] _bucket;
             delete[] _token;
-            delete[] _measurement;
-            delete[] _fieldKey;
             delete[] _id;
-            delete _tagSet;
             delete _outputs;
             influxDB_v2 = nullptr;
         };
@@ -45,40 +38,18 @@ class influxDB2_uploader: public Uploader
 
     private:
 
-
-        struct influxTag {
-            influxTag* next;
-            char*      key;
-            char*      value;
-            influxTag()
-                :next(nullptr)
-                ,key(nullptr)
-                ,value(nullptr)
-                {}
-            ~influxTag(){
-                delete[] key;
-                delete[] value;
-                delete   next;
-            }
-        } *_tagSet;
-        
         uint32_t _lookbackHours;
         char *_orgID;
         char *_bucket;
         char *_token;
-        char *_measurement;
-        char *_fieldKey;
-        bool _staticKeySet;
-        bool _heap;
 
         uint32_t handle_query_s();
         uint32_t handle_checkQuery_s();
-        uint32_t handle_write_s();
         uint32_t handle_checkWrite_s();
+        String writeEndpoint();
         bool configCB(JsonObject &);
 
         void setRequestHeaders();
-        String varStr(const char *in, Script *script);
         int scriptCompare(Script *a, Script *b);
 };
 

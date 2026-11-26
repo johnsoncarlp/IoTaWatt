@@ -21,6 +21,7 @@ void operator delete[](void* p, size_t) noexcept { if(p){ liveAllocs--; free(p);
 #include "xurl.cpp"
 #include "splitstr.cpp"
 #include "uploaders/Uploader.cpp"
+#include "uploaders/influxBase.cpp"
 #include "uploaders/influxDB_uploader.cpp"
 #include "uploaders/influxDB2_uploader.cpp"
 #include "uploaders/Emoncms_uploader.cpp"
