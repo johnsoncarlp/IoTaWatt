@@ -144,7 +144,10 @@
         border-bottom: var(--bs-border-width) solid var(--bs-border-color);
       }
       #uploader input[type=file] { max-width: 16rem; }
-      #upload-path { width: 12rem; }
+      #upload-path { width: 16rem; }
+      .drop-here { outline: 2px dashed var(--bs-primary); outline-offset: -2px; }
+      .css-treeview .size { color: var(--bs-secondary-color); font-size: .8em; margin-left: .4em; }
+      .css-treeview label.current { font-weight: 700; }
       #workarea { flex: 1; display: flex; min-height: 0; }
       #side { width: 220px; flex-shrink: 0; overflow: auto; padding: .5rem;
               border-right: var(--bs-border-width) solid var(--bs-border-color); }
@@ -158,98 +161,164 @@
       }
     </style>
     <script>
+      // ---- Upload, new file, new folder (the toolbar) ----
+      // Uploads go into the current folder (the one last opened in the tree, "/" at first) under the chosen
+      // file's own name, which the path box shows and may change. A file can also be dropped on the
+      // toolbar or on a folder. Existing files are replaced only after asking; the IoTaWatt's own files
+      // are refused with a pointer to the right tool. Progress and results show in the message area.
+      var currentFolder = "/";
+      function setCurrentFolder(folder){
+        currentFolder = folder || "/";
+        var where = document.getElementById("upload-where");
+        if(where) where.textContent = "Upload into " + (currentFolder == "/" ? "/" : currentFolder + "/");
+        var path = document.getElementById("upload-path");
+        var input = document.getElementById("upload-file");
+        if(path && input && input.files.length) path.value = joinPath(currentFolder, input.files[0].name);
+      }
+      function joinPath(folder, name){ return (folder == "/" ? "" : folder) + "/" + name.toLowerCase(); }
+      function showMessage(text, kind){
+        var m = document.getElementById("msgarea");
+        m.textContent = text;
+        m.className = kind == "error" ? "text-danger" : (kind == "ok" ? "text-success" : "");
+      }
+      function protectedPath(p){
+        p = p.toLowerCase();
+        if(p == "/config.txt" || p == "/config+1.txt") return "The configuration is changed in Setup, or restored in Tools → Backup and restore.";
+        if(p.indexOf("/iotawatt/") == 0) return "The IoTaWatt's own files (logs, passwords) can't be replaced from here.";
+        return null;
+      }
+
       function createFileUploader(element, tree, editor){
-        var xmlHttp;
+        var bar = document.getElementById(element);
+        var where = document.createElement("span");
+        where.id = "upload-where";
+        where.className = "text-secondary";
+        bar.appendChild(where);
         var input = document.createElement("input");
         input.type = "file";
-        input.multiple = false;
-        input.name = "data";
+        input.id = "upload-file";
         input.className = "form-control form-control-sm";
-        document.getElementById(element).appendChild(input);
+        bar.appendChild(input);
         var path = document.createElement("input");
         path.id = "upload-path";
         path.type = "text";
-        path.name = "path";
-        path.defaultValue = "/";
+        path.value = "";
+        path.placeholder = "path on the SD card";
         path.className = "form-control form-control-sm";
         path.setAttribute("aria-label", "Path");
-        document.getElementById(element).appendChild(path);
+        bar.appendChild(path);
         var button = document.createElement("button");
-        button.innerHTML = 'Upload';
+        button.textContent = "Upload";
         button.className = "btn btn-sm btn-primary";
-        document.getElementById(element).appendChild(button);
+        bar.appendChild(button);
+        var progress = document.createElement("progress");
+        progress.max = 100; progress.style.display = "none";
+        bar.appendChild(progress);
         var mkdir = document.createElement("button");
-        mkdir.innerHTML = 'New folder';
+        mkdir.textContent = "New folder";
         mkdir.className = "btn btn-sm btn-outline-secondary";
-        document.getElementById(element).appendChild(mkdir);
+        bar.appendChild(mkdir);
         var mkfile = document.createElement("button");
-        mkfile.innerHTML = 'New file';
+        mkfile.textContent = "New file";
         mkfile.className = "btn btn-sm btn-outline-secondary";
-        document.getElementById(element).appendChild(mkfile);
-  
-        function httpPostProcessRequest(){
-          if (xmlHttp.readyState == 4){
-            if(xmlHttp.status != 200) alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
-            else {
-              tree.refreshPath(path.value);
-            }
-          }
-        }
-        function createPath(p){
-          xmlHttp = new XMLHttpRequest();
-          xmlHttp.onreadystatechange = httpPostProcessRequest;
+        bar.appendChild(mkfile);
+        setCurrentFolder("/");
+
+        function createPath(p, done){
+          var x = new XMLHttpRequest();
+          x.onreadystatechange = function(){
+            if(x.readyState != 4) return;
+            if(x.status != 200) showMessage("Not created: " + p + " (" + (x.responseText || x.status) + ")", "error");
+            else { showMessage("Created " + p, "ok"); tree.refreshPath(p); if(done) done(); }
+          };
           var formData = new FormData();
           formData.append("path", p);
-          xmlHttp.open("PUT", "/edit");
-          xmlHttp.send(formData);
+          x.open("PUT", "/edit");
+          x.send(formData);
         }
-        
-        mkfile.onclick = function(e){
-          if(path.value.indexOf(".") === -1) return;
-          createPath(path.value);
-          editor.loadUrl(path.value);
+        mkfile.onclick = function(){
+          var name = prompt("New file in " + (currentFolder == "/" ? "/" : currentFolder + "/") + " (with an extension, e.g. notes.txt):");
+          if(!name) return;
+          if(name.indexOf(".") === -1){ showMessage("A file name needs an extension.", "error"); return; }
+          var p = joinPath(currentFolder, name);
+          createPath(p, function(){ editor.loadUrl(p); });
         };
-        mkdir.onclick = function(e){
-          if(path.value.length < 2) return;
-          var dir = path.value
-          if(dir.indexOf(".") !== -1){
-            if(dir.lastIndexOf("/") === 0) return;
-            dir = dir.substring(0, dir.lastIndexOf("/"));
-          }
-          createPath(dir);
+        mkdir.onclick = function(){
+          var name = prompt("New folder in " + (currentFolder == "/" ? "/" : currentFolder + "/") + ":");
+          if(!name) return;
+          createPath(joinPath(currentFolder, name.replace(/\./g, "")));
         };
-        button.onclick = function(e){
-          if(input.files.length === 0){
-            return;
-          }
-          xmlHttp = new XMLHttpRequest();
-          xmlHttp.onreadystatechange = httpPostProcessRequest;
-          var formData = new FormData();
-          formData.append("data", input.files[0], path.value);
-		  // document.getElementByID("msgarea").innerHTML = "<p>" + formData + "</p>";
-          xmlHttp.open("POST", "/edit");
-          xmlHttp.send(formData);
+
+        // Does the folder already have that name? (asks the device, the tree may not be expanded)
+        function exists(p, cb){
+          var folder = p.substring(0, p.lastIndexOf("/")) || "/";
+          var name = p.substring(p.lastIndexOf("/") + 1);
+          var x = new XMLHttpRequest();
+          x.onreadystatechange = function(){
+            if(x.readyState != 4) return;
+            var found = false;
+            try { JSON.parse(x.responseText).forEach(function(i){ if(i.name.toLowerCase() == name) found = i; }); } catch(e) {}
+            cb(found);
+          };
+          x.open("GET", "/list?dir=" + encodeURIComponent(folder), true);
+          x.send(null);
         }
-        input.onchange = function(e){
-          if(input.files.length === 0) return;
-          var filename = input.files[0].name;
-          var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
-          var name = /(.*)\.[^.]+$/.exec(filename)[1];
-          if(typeof name !== undefined){
-            if(name.length > 8) name = name.substring(0, 8);
-            filename = name;
-          }
-          if(typeof ext !== undefined){
-            if(ext === "html") ext = "htm";
-            else if(ext === "jpeg") ext = "jpg";
-            filename = filename + "." + ext;
-          }
-          if(path.value === "/" || path.value.lastIndexOf("/") === 0){
-            path.value = "/"+filename;
-          } else {
-            path.value = path.value.substring(0, path.value.lastIndexOf("/")+1)+filename;
-          }
+
+        function upload(file){
+          var p = path.value.trim().toLowerCase() || joinPath(currentFolder, file.name);
+          if(p.charAt(0) != "/") p = "/" + p;
+          var refuse = protectedPath(p);
+          if(refuse){ showMessage(p + ": " + refuse, "error"); return; }
+          exists(p, function(found){
+            if(found && !confirm(p + " already exists (" + found.size + " bytes). Replace it?")) return;
+            var x = new XMLHttpRequest();
+            x.upload.onprogress = function(e){
+              if(!e.lengthComputable) return;
+              progress.value = 100 * e.loaded / e.total;
+              showMessage("Uploading " + p + ": " + Math.round(100 * e.loaded / e.total) + " %");
+            };
+            x.onreadystatechange = function(){
+              if(x.readyState != 4) return;
+              progress.style.display = "none";
+              button.disabled = false;
+              if(x.status != 200) showMessage("Not uploaded: " + p + " (" + (x.responseText || ("error " + x.status)) + ")", "error");
+              else { showMessage("Uploaded " + p + " (" + file.size + " bytes)", "ok"); tree.refreshPath(p); }
+            };
+            var formData = new FormData();
+            formData.append("data", file, p);
+            progress.value = 0; progress.style.display = "inline";
+            button.disabled = true;
+            x.open("POST", "/edit");
+            x.send(formData);
+          });
         }
+        button.onclick = function(){
+          if(input.files.length === 0){ showMessage("Choose a file (or drop one here) first."); return; }
+          upload(input.files[0]);
+        };
+        input.onchange = function(){
+          if(input.files.length) path.value = joinPath(currentFolder, input.files[0].name);
+        };
+
+        // Drop a file on the toolbar (into the current folder) or on a folder in the tree (into that folder).
+        function dropTarget(el, folderOf){
+          el.addEventListener("dragover", function(e){ e.preventDefault(); el.classList.add("drop-here"); });
+          el.addEventListener("dragleave", function(){ el.classList.remove("drop-here"); });
+          el.addEventListener("drop", function(e){
+            e.preventDefault(); e.stopPropagation(); el.classList.remove("drop-here");
+            if(!e.dataTransfer.files.length) return;
+            var folder = folderOf(e);
+            if(folder) setCurrentFolder(folder);
+            path.value = joinPath(currentFolder, e.dataTransfer.files[0].name);
+            upload(e.dataTransfer.files[0]);
+          });
+        }
+        dropTarget(bar, function(){ return null; });
+        dropTarget(document.getElementById("tree"), function(e){
+          var li = e.target.closest ? e.target.closest("li") : null;
+          var check = li && li.querySelector("input[type=checkbox]");
+          return check ? check.id : "/";
+        });
       }
 
       function createTree(element, editor){
@@ -298,15 +367,8 @@
               reloadFolder(path);
             });
           }
-          menuItem(list, el, "Upload", function(){
-            var pathEl = document.getElementById("upload-path");
-            if(pathEl){
-              var subPath = pathEl.value;
-              if(subPath.lastIndexOf("/") < 1) pathEl.value = path+subPath;
-              else pathEl.value = path.substring(subPath.lastIndexOf("/"))+subPath;
-            }
-          });
-          menuItem(list, el, "Delete", function(){ httpDelete(path); });
+          menuItem(list, el, "Upload here", function(){ markCurrent(path); });
+          menuItem(list, el, "Delete", function(){ confirmDelete(path, true); });
         }
 
         function fillFileMenu(el, path){
@@ -318,7 +380,7 @@
             menuItem(list, el, "Preview", function(){ loadPreview(path); });
           }
           menuItem(list, el, "Download", function(){ loadDownload(path); });
-          menuItem(list, el, "Delete", function(){ httpDelete(path); });
+          menuItem(list, el, "Delete", function(){ confirmDelete(path, false); });
         }
 
         function showContextMenu(e, path, isfile){
@@ -349,6 +411,12 @@
           var label = document.createElement("span");
           label.textContent = name.toLowerCase();
           leaf.appendChild(label);
+          if(size !== undefined){
+            var sz = document.createElement("span");
+            sz.className = "size";
+            sz.textContent = size < 1024 ? size + " B" : size < 1048576 ? Math.round(size / 1024) + " KB" : (size / 1048576).toFixed(1) + " MB";
+            leaf.appendChild(sz);
+          }
           leaf.onclick = function(e){
             if(isTextFile(leaf.id)){
               editor.loadUrl(leaf.id);
@@ -382,6 +450,7 @@
             }
           };
           label.onclick = function(e){
+            markCurrent(check.id);
             if(!check.checked){
               check.checked = true;
               if(leaf.childNodes.length == 3) leaf.removeChild(leaf.childNodes[2]);
@@ -466,8 +535,9 @@
           return function(){
             if (xmlHttp.readyState == 4){
               if(xmlHttp.status != 200){
-                alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
+                showMessage("Not deleted: " + path + " (" + (xmlHttp.responseText || xmlHttp.status) + ")", "error");
               } else {
+                showMessage("Deleted " + path, "ok");
                 if(path.lastIndexOf('/') < 1){
                   path = '/';
                   treeRoot.removeChild(treeRoot.childNodes[0]);
@@ -483,6 +553,22 @@
           }
         }
   
+        // The folder uploads go into: bold in the tree, named in the toolbar.
+        function markCurrent(folder){
+          var old = treeRoot.querySelector("label.current");
+          if(old) old.classList.remove("current");
+          var check = document.getElementById(folder);
+          if(check && check.nextSibling) check.nextSibling.classList.add("current");
+          setCurrentFolder(folder);
+        }
+
+        function confirmDelete(p, isFolder){
+          var refuse = protectedPath(p) || (p == "/iotawatt" ? "The IoTaWatt's own folder can't be deleted." : null);
+          if(refuse){ showMessage(p + ": " + refuse, "error"); return; }
+          if(!confirm("Delete " + p + (isFolder ? " and everything in it" : "") + "?")) return;
+          httpDelete(p);
+        }
+
         function httpDelete(filename){
           xmlHttp = new XMLHttpRequest();
           xmlHttp.onreadystatechange = delCb(filename);
@@ -642,7 +728,7 @@
     <div id="workarea">
       <div id="side">
         <div id="tree"></div>
-        <div id="msgarea"><p>Message Area</p></div>
+        <div id="msgarea">Open a folder to upload into it, or drop a file on it.</div>
       </div>
       <div id="editor"></div>
       <div id="preview" style="display:none;"></div>
