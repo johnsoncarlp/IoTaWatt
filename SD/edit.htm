@@ -168,6 +168,15 @@
       // are refused with a pointer to the right tool. Progress and results show in the message area.
       // Unsaved edits: the menu now opens pages in this tab, so leaving asks first.
       var editorDirty = false;
+      // Text files larger than this open read-only, showing only their last part (the device sends it:
+      // ?textpos=-n): a whole message log is too much for the editor, and saving a part would replace the
+      // whole file with it. Download gets the whole file.
+      var TEXT_OPEN_LIMIT = 10240;
+      function sizeText(size){ return size < 1024 ? size + " B" : size < 1048576 ? Math.round(size / 1024) + " KB" : (size / 1048576).toFixed(1) + " MB"; }
+      function openText(editor, path, size){
+        if(size !== undefined && size > TEXT_OPEN_LIMIT) editor.loadTail(path, size);
+        else editor.loadUrl(path);
+      }
       window.addEventListener("beforeunload", function(e){ if(editorDirty){ e.preventDefault(); e.returnValue = ""; } });
       var currentFolder = "/";
       function setCurrentFolder(folder){
@@ -378,7 +387,9 @@
           var list = document.createElement("ul");
           el.appendChild(list);
           if(isTextFile(path)){
-            menuItem(list, el, "Edit", function(){ editor.loadUrl(path); });
+            var leafEl = document.getElementById(path);
+            var size = leafEl && leafEl.dataset.size !== undefined ? Number(leafEl.dataset.size) : undefined;
+            menuItem(list, el, size > TEXT_OPEN_LIMIT ? "View the end" : "Edit", function(){ openText(editor, path, size); });
           } else if(isImageFile(path)){
             menuItem(list, el, "Preview", function(){ loadPreview(path); });
           }
@@ -411,18 +422,19 @@
         function createTreeLeaf(path, name, size){
           var leaf = document.createElement("li");
           leaf.id = (((path == "/")?"":path)+"/"+name).toLowerCase();
+          leaf.dataset.size = size;
           var label = document.createElement("span");
           label.textContent = name.toLowerCase();
           leaf.appendChild(label);
           if(size !== undefined){
             var sz = document.createElement("span");
             sz.className = "size";
-            sz.textContent = size < 1024 ? size + " B" : size < 1048576 ? Math.round(size / 1024) + " KB" : (size / 1048576).toFixed(1) + " MB";
+            sz.textContent = sizeText(size);
             leaf.appendChild(sz);
           }
           leaf.onclick = function(e){
             if(isTextFile(leaf.id)){
-              editor.loadUrl(leaf.id);
+              openText(editor, leaf.id, size);
             } else if(isImageFile(leaf.id)){
               loadPreview(leaf.id);
             }
@@ -603,6 +615,7 @@
       }
 
       function createEditor(element, file, lang, theme, type){
+        var tail = false;                         // showing only the end of a large file (read-only)
         function getLangFromFilename(filename){
           var lang = "plain";
           var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
@@ -687,6 +700,7 @@
             name: 'saveCommand',
             bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
             exec: function(editor) {
+              if(tail){ showMessage(file + " is open read-only (only its end is shown): not saved.", "error"); return; }
               httpPost(file, editor.getValue()+"", type);
             },
             readOnly: false
@@ -709,8 +723,20 @@
         });
         httpGet(file);
         editor.on("change", function(){ editorDirty = true; });
+        editor.loadTail = function(filename, size){
+          if(editorDirty && !confirm(file + " has changes that aren't saved (Ctrl+S saves). Open " + filename + " anyway?")) return;
+          file = filename;
+          tail = true;
+          editor.setReadOnly(true);
+          editor.getSession().setMode("ace/mode/text");
+          httpGet(file + "?textpos=-" + TEXT_OPEN_LIMIT);
+          showMessage(filename + " is " + sizeText(size) + ": showing its last " + sizeText(TEXT_OPEN_LIMIT) +
+                      ", read-only. Download it (right-click) for the whole file.");
+        }
         editor.loadUrl = function(filename){
           if(editorDirty && !confirm(file + " has changes that aren't saved (Ctrl+S saves). Open " + filename + " anyway?")) return;
+          tail = false;
+          editor.setReadOnly(false);
           file = filename;
           lang = getLangFromFilename(file);
           type = "text/"+lang;
