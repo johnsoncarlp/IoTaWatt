@@ -32,6 +32,7 @@
     var tools = [
         ["files", "Files", null, "edit.htm"],
         ["messages", "Message log", null, "iotawatt/iotamsgs.txt?textpos=-10000"],   // its last 10,000 bytes
+        ["backup", "Backup and restore", "toolsBackup"],
         ["wifi", "Wi-Fi", "toolsWiFi"],
         ["restart", "Restart", "toolsRestart"]
     ];

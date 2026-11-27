@@ -281,6 +281,27 @@
 
             <!-- ****************************** WiFi **********************************-->
 
+            <div id="divBackup" class="body tools color_body" style="display:none">
+                <h3>Backup and restore</h3>
+                <p>
+                    The configuration (inputs, outputs, integrators, uploaders, device settings) is one file,
+                    <code>config.txt</code>. Download it to keep a copy; restore it to go back to it, or to set up
+                    a replacement IoTaWatt. The data logs and the passwords are not part of it.
+                </p>
+                <p class="form-text">
+                    The file includes the uploaders' API keys and passwords: keep it private.
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button class="btn btn-primary" onclick="backupDownload()">Download the configuration</button>
+                </div>
+                <h3>Restore</h3>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <input type="file" id="backupFile" class="form-control w-auto" accept=".json,.txt">
+                    <button class="btn btn-outline-danger" onclick="backupRestore()">Restore</button>
+                </div>
+                <p id="backupMsg"></p>
+            </div>
+
             <div id="divWiFi" class="body tools color_body" style="display:none">
                 <h3>Disconnect WiFi</h3>
                 <p>
@@ -775,6 +796,62 @@
             }
             xmlHttp.open("GET", "/command?restart=yes", true);
             xmlHttp.send(null);
+        }
+
+        // ---- Backup and restore (the configuration file) ----
+
+        function toolsBackup() {
+            EbyId("backupMsg").textContent = "";
+            EbyId("backupFile").value = "";
+            currentBodyPush("divBackup");
+        }
+
+        // The file as stored (comments kept), named after the device and the date.
+        function backupDownload() {
+            readFile(configFileURL, function(text) {
+                if (text === undefined) { EbyId("backupMsg").textContent = "Could not read the configuration."; return; }
+                var d = new Date();
+                var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                var date = ("0" + d.getDate()).slice(-2) + months[d.getMonth()] + d.getFullYear();
+                var name = "iotawatt-config-" + String(config.device.name || "IotaWatt").replace(/[^A-Za-z0-9_-]/g, "_") + "-" + date + ".json";
+                var a = document.createElement("a");
+                a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+                a.download = name;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+                EbyId("backupMsg").textContent = "Saved as " + name + ".";
+            });
+        }
+
+        // Check the file, say what it holds, ask, then save it as Setup saves a change (the device
+        // validates it and keeps the previous one).
+        function backupRestore() {
+            var file = EbyId("backupFile").files[0];
+            var msg = EbyId("backupMsg");
+            if (!file) { msg.textContent = "Choose a backup file first."; return; }
+            var reader = new FileReader();
+            reader.onload = function() {
+                var text = reader.result, c;
+                try { c = JSON.parse(text.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, "")); } catch (e) { c = null; }
+                if (!c || typeof c !== "object" || !c.device || !Array.isArray(c.inputs)) {
+                    msg.textContent = "That isn't an IoTaWatt configuration file.";
+                    return;
+                }
+                var count = function(a) { return Array.isArray(a) ? a.length : 0; };
+                var ups = ["influxdb", "influxdb2", "emoncms", "pvoutput"].filter(function(k) { return c[k] !== undefined; });
+                var summary = "Restore the configuration of \"" + (c.device.name || "?") + "\": " +
+                    count(c.inputs.filter(function(i) { return i; })) + " inputs, " + count(c.outputs) + " outputs, " +
+                    count(c.integrators) + " integrators" + (ups.length ? ", uploaders: " + ups.join(", ") : "") +
+                    "?\n\nIt replaces the current configuration.";
+                if (!confirm(summary)) return;
+                writeFile(text, configNewURL, function() {
+                    msg.textContent = "Configuration restored. Reloading it...";
+                    setTimeout(function() { location.reload(); }, 3000);
+                }, function(status) {
+                    msg.textContent = "Not restored (" + status + ").";
+                });
+            };
+            reader.readAsText(file);
         }
 
         function toolsWiFi() {
@@ -3208,7 +3285,7 @@
             writeFile(JSON.stringify(config, null, "\t"), configNewURL);
         }
 
-        function writeFile(fileString, url, responseHandler) {
+        function writeFile(fileString, url, responseHandler, failHandler) {
             var xmlHttp = new XMLHttpRequest();
             xmlHttp.onreadystatechange = function() {
                 if (this.readyState == 4) {
@@ -3222,6 +3299,8 @@
                     } else if (this.status == 409) {
                         alert("config file not current, operation aborted,\nconfig file not updated, restarting app.");
                         setup();
+                    } else if (failHandler !== undefined) {
+                        failHandler(this.status);
                     }
                 }
             };
