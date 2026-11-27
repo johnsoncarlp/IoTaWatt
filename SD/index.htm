@@ -524,6 +524,7 @@
         var originalSdWebui;
         var originalRoam;
         var timezone = 0;
+        var originalTz;
         var faults = 0;
         var tokens = [{
             oper: "const",
@@ -641,6 +642,82 @@
                 }
             }
         }];
+        // Named time zones for the Device page, UTC first (the default): offset (standard time) and
+        // daylight-time rule (one of dstRules, or none). The browser's own zone is only marked, not chosen. Only places whose rules the firmware knows, or that don't use daylight time;
+        // others use "Other" (offset, no rule). Last: IANA names to recognise the browser's own zone.
+        var timeZones = [
+            ["UTC", "UTC (Z, no daylight time)", 0, null, ["UTC", "Etc/UTC", "Etc/GMT", "GMT", "Etc/Universal", "Etc/Zulu"]],
+            ["Pacific/Honolulu", "Hawaii", -10, null, ["Pacific/Honolulu"]],
+            ["America/Anchorage", "Alaska", -9, "Americas", ["America/Anchorage", "America/Juneau", "America/Nome", "America/Sitka", "America/Yakutat"]],
+            ["America/Los_Angeles", "US and Canada Pacific (Los Angeles, Vancouver)", -8, "Americas", ["America/Los_Angeles", "America/Vancouver", "America/Tijuana"]],
+            ["America/Phoenix", "Arizona (no daylight time)", -7, null, ["America/Phoenix"]],
+            ["America/Denver", "US and Canada Mountain (Denver, Edmonton)", -7, "Americas", ["America/Denver", "America/Edmonton", "America/Boise"]],
+            ["America/Chicago", "US and Canada Central (Chicago, Winnipeg)", -6, "Americas", ["America/Chicago", "America/Winnipeg", "America/Indiana/Knox", "America/Menominee"]],
+            ["America/Regina", "Saskatchewan (no daylight time)", -6, null, ["America/Regina", "America/Swift_Current"]],
+            ["America/Mexico_City", "Mexico (no daylight time)", -6, null, ["America/Mexico_City", "America/Monterrey", "America/Merida", "America/Guatemala"]],
+            ["America/New_York", "US and Canada Eastern (New York, Toronto)", -5, "Americas", ["America/New_York", "America/Toronto", "America/Detroit", "America/Indiana/Indianapolis", "America/Kentucky/Louisville", "America/Montreal"]],
+            ["America/Halifax", "Atlantic (Halifax)", -4, "Americas", ["America/Halifax", "America/Moncton", "Atlantic/Bermuda"]],
+            ["America/Puerto_Rico", "Puerto Rico (no daylight time)", -4, null, ["America/Puerto_Rico"]],
+            ["America/St_Johns", "Newfoundland", -3.5, "Americas", ["America/St_Johns"]],
+            ["America/Sao_Paulo", "Brazil, Argentina (no daylight time)", -3, null, ["America/Sao_Paulo", "America/Argentina/Buenos_Aires", "America/Buenos_Aires", "America/Montevideo"]],
+            ["Atlantic/Reykjavik", "Iceland (no daylight time)", 0, null, ["Atlantic/Reykjavik"]],
+            ["Europe/London", "UK, Ireland, Portugal", 0, "Europe", ["Europe/London", "Europe/Dublin", "Europe/Lisbon"]],
+            ["Europe/Paris", "Central Europe (Paris, Berlin, Rome, Madrid)", 1, "Europe", ["Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Madrid", "Europe/Amsterdam", "Europe/Brussels", "Europe/Vienna", "Europe/Zurich", "Europe/Stockholm", "Europe/Oslo", "Europe/Copenhagen", "Europe/Warsaw", "Europe/Prague", "Europe/Budapest"]],
+            ["Europe/Athens", "Eastern Europe (Athens, Helsinki, Kyiv)", 2, "Europe", ["Europe/Athens", "Europe/Helsinki", "Europe/Kyiv", "Europe/Kiev", "Europe/Bucharest", "Europe/Sofia", "Europe/Riga", "Europe/Vilnius", "Europe/Tallinn"]],
+            ["Africa/Johannesburg", "South Africa, Egypt (no daylight time)", 2, null, ["Africa/Johannesburg", "Africa/Cairo"]],
+            ["Europe/Moscow", "Moscow, Istanbul (no daylight time)", 3, null, ["Europe/Moscow", "Europe/Istanbul", "Africa/Nairobi"]],
+            ["Asia/Dubai", "Gulf (Dubai)", 4, null, ["Asia/Dubai", "Asia/Muscat"]],
+            ["Asia/Kolkata", "India", 5.5, null, ["Asia/Kolkata", "Asia/Calcutta"]],
+            ["Asia/Shanghai", "China, Singapore, Philippines", 8, null, ["Asia/Shanghai", "Asia/Singapore", "Asia/Manila", "Asia/Hong_Kong", "Asia/Taipei", "Asia/Kuala_Lumpur"]],
+            ["Australia/Perth", "Western Australia (Perth)", 8, null, ["Australia/Perth"]],
+            ["Asia/Tokyo", "Japan, Korea", 9, null, ["Asia/Tokyo", "Asia/Seoul"]],
+            ["Australia/Darwin", "Northern Territory (Darwin)", 9.5, null, ["Australia/Darwin"]],
+            ["Australia/Adelaide", "South Australia (Adelaide)", 9.5, "Australia", ["Australia/Adelaide", "Australia/Broken_Hill"]],
+            ["Australia/Brisbane", "Queensland (Brisbane, no daylight time)", 10, null, ["Australia/Brisbane"]],
+            ["Australia/Sydney", "Sydney, Melbourne, Canberra, Hobart", 10, "Australia", ["Australia/Sydney", "Australia/Melbourne", "Australia/Hobart", "Australia/Canberra"]],
+            ["Pacific/Auckland", "New Zealand", 12, "NewZealand", ["Pacific/Auckland"]]
+        ];
+
+        function timeZoneById(id) {
+            for (var i in timeZones) if (timeZones[i][0] == id) return timeZones[i];
+            return null;
+        }
+        function timeZoneOfBrowser() {
+            var tz = "";
+            try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+            for (var i in timeZones) if (timeZones[i][4].indexOf(tz) >= 0) return timeZones[i];
+            return null;
+        }
+        function dstRuleById(id) {
+            for (var i in dstRules) if (dstRules[i].id == id) return JSON.parse(JSON.stringify(dstRules[i].dstrule));
+            return undefined;
+        }
+        // The entry the saved settings correspond to: the one named in the config, else the browser's own if
+        // it matches them, else the first entry with that offset and rule.
+        function timeZoneOfConfig() {
+            var z = timeZoneById(config.device.tz);
+            if (z) return z;
+            var rule = config.dstrule === undefined ? null : JSON.stringify(config.dstrule);
+            var matches = function(z) { return z[2] == Number(config.timezone) && (z[3] ? JSON.stringify(dstRuleById(z[3])) : null) == rule; };
+            var b = timeZoneOfBrowser();
+            if (b && matches(b)) return b;
+            for (var i in timeZones) if (matches(timeZones[i])) return timeZones[i];
+            return null;
+        }
+        function timeZonePreview() {
+            var sel = EbyId("deviceTz"), out = EbyId("deviceTzNow");
+            if (!sel || !out) return;
+            var z = timeZoneById(sel.value);
+            var other = EbyId("deviceTimezone").closest("tr"), dst = EbyId("allowDST").closest("tr");
+            other.style.display = z ? "none" : "";
+            dst.style.display = z ? "none" : "";
+            if (!z) { out.textContent = "Enter the UTC offset of standard time below."; return; }
+            var now = "";
+            try { now = new Date().toLocaleString([], { timeZone: z[0], weekday: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) {}
+            var off = "UTC" + (z[2] >= 0 ? "+" : "\u2212") + Math.abs(z[2]);
+            out.textContent = "Local time there now: " + now + " (" + off + (z[3] ? ", daylight time in summer)" : ", no daylight time)");
+        }
+
         /***************************************************************************************************
          *                       Shorthand functions
          * ************************************************************************************************/
@@ -2004,7 +2081,27 @@
             deviceName.setAttribute("oninput", "config.device.name = this.value.trim(); checkDevice();");
             deviceName.pattern = "[a-zA-Z]{1}[0-9a-zA-Z]{3,7}";
 
-            var deviceTimezone = addTableRow(deviceTable, "Time Zone:", "deviceTimezone", "input", 3);
+            originalTz = config.device.tz;
+            var tzSelect = addTableRow(deviceTable, "Time zone:", "deviceTz", "select");
+            tzSelect.className = "form-select w-auto";
+            var cur = timeZoneOfConfig(), browser = timeZoneOfBrowser();
+            timeZones.forEach(function(z) {
+                var o = document.createElement("option");
+                o.value = z[0];
+                o.textContent = z[1] + (browser && browser[0] == z[0] ? "  (this browser's)" : "");
+                tzSelect.add(o);
+            });
+            var otherOpt = document.createElement("option");
+            otherOpt.value = "";
+            otherOpt.textContent = "Other: enter the UTC offset";
+            tzSelect.add(otherOpt);
+            tzSelect.value = cur ? cur[0] : (config.timezone === undefined || config.timezone == 0 ? "UTC" : "");   // UTC by default
+            tzSelect.setAttribute("onchange", "timeZonePreview(); checkDevice();");
+            var tzNow = addTableText(deviceTable, "", "");
+            tzNow.id = "deviceTzNow";
+            tzNow.className = "form-text";
+
+            var deviceTimezone = addTableRow(deviceTable, "UTC offset (hours):", "deviceTimezone", "input", 3);
             deviceTimezone.value = config.timezone;
             deviceTimezone.setAttribute("onchange", "config.timezone = this.value; checkDevice();");
             deviceTimezone.setAttribute("style", "width: 65px;");
@@ -2017,6 +2114,7 @@
             allowDST.setAttribute("type", "checkbox");
             allowDST.checked = (config.dstrule != undefined) ? true : false;
             allowDST.setAttribute("onchange", "checkDevice();");
+            timeZonePreview();
 
             originalNtp = config.device.ntp;
             var deviceNtp = addTableRow(deviceTable, "Time server(s):", "deviceNtp", "input", 30);
@@ -2086,6 +2184,7 @@
             config.device.sdwebui = originalSdWebui;
             config.device.roam = originalRoam;
             config.timezone = timezone;
+            config.device.tz = originalTz;
             editing = false;
             currentBodyPop();
         }
@@ -2096,7 +2195,12 @@
             config.allowdst = undefined;
             config.tzrule = undefined;
             config.dstrule = undefined;
-            if (EbyId("allowDST").checked) {
+            var tz = timeZoneById(EbyId("deviceTz").value);
+            config.device.tz = tz ? tz[0] : undefined;       // the entry, so the page shows it again
+            if (tz) {
+                config.timezone = tz[2];
+                config.dstrule = tz[3] ? dstRuleById(tz[3]) : undefined;
+            } else if (EbyId("allowDST").checked) {
                 for (i in dstRules) {
                     if (config.timezone >= dstRules[i].begOffset && config.timezone <= dstRules[i].endOffset) {
                         config.dstrule = dstRules[i].dstrule;
