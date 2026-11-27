@@ -11,6 +11,79 @@ struct tcp_pcb {
 extern struct tcp_pcb* tcp_tw_pcbs;
 extern "C" void tcp_abort(struct tcp_pcb* pcb);
 
+#include "wifiSwitch.h"
+
+        // A switch to another network (wifiSwitch.h): the old one is kept here to go back to.
+static bool     switching = false;
+static String   switchSsid, oldSsid, oldPsk;
+static uint32_t switchStarted = 0;
+
+bool wifiSwitching(){ return switching; }
+
+bool wifiSwitchStart(const String& ssid, const String& psk){
+  if(switching) return false;
+  oldSsid = WiFi.SSID();
+  oldPsk = WiFi.psk();
+  switchSsid = ssid;
+  switchStarted = UTCtime();
+  switching = true;
+  log("WiFi: switching from %s to %s (back to %s if not connected within %d s).", oldSsid.c_str(), ssid.c_str(),
+      oldSsid.c_str(), WIFI_SWITCH_TIMEOUT_S);
+  WiFi.persistent(true);                          // the new network is the one to use from now on
+  WiFi.begin(ssid.c_str(), psk.c_str());
+  return true;
+}
+
+static void wifiSwitchPoll(){
+  bool onNew = WiFi.status() == WL_CONNECTED && WiFi.SSID() == switchSsid;
+  switch(wifiSwitchCheck(UTCtime(), switchStarted, onNew)){
+    case wifiSwitchWaiting: return;
+    case wifiSwitchDone:
+      log("WiFi: switched to %s.", switchSsid.c_str());
+      break;
+    case wifiSwitchRevert:
+      log("WiFi: couldn't connect to %s within %d s, back to %s.", switchSsid.c_str(), WIFI_SWITCH_TIMEOUT_S, oldSsid.c_str());
+      WiFi.persistent(true);
+      WiFi.begin(oldSsid.c_str(), oldPsk.c_str());
+      break;
+  }
+  switching = false;
+  oldPsk = "";
+}
+
+        // Nearby networks for the Wi-Fi page: one entry per name, the strongest; asynchronous.
+String wifiScanJson(){
+  int found = WiFi.scanComplete();
+  if(found == WIFI_SCAN_RUNNING) return "";
+  if(found < 0){
+    WiFi.scanNetworks(true, false);
+    return "";
+  }
+  JsonDocument doc;
+  JsonArray list = doc.to<JsonArray>();
+  for(int i = 0; i < found; i++){
+    String ssid = WiFi.SSID(i);
+    if( ! ssid.length()) continue;
+    bool seen = false;
+    for(JsonObject n : list){
+      if(ssid.equals(n["ssid"].as<const char*>())){
+        seen = true;
+        if(WiFi.RSSI(i) > n["rssi"].as<int>()){ n["rssi"] = WiFi.RSSI(i); n["channel"] = WiFi.channel(i); }
+      }
+    }
+    if(seen) continue;
+    JsonObject n = list.add<JsonObject>();
+    n["ssid"] = ssid;
+    n["rssi"] = WiFi.RSSI(i);
+    n["channel"] = WiFi.channel(i);
+    n["open"] = WiFi.encryptionType(i) == ENC_TYPE_NONE;
+  }
+  WiFi.scanDelete();
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
 uint32_t WiFiService(struct serviceBlock* _serviceBlock) {
   static uint32_t lastDisconnect = UTCtime();       // Time of last disconnect
   const uint32_t restartInterval = 60*60;           // Restart if disconnected this many seconds
@@ -29,7 +102,8 @@ uint32_t WiFiService(struct serviceBlock* _serviceBlock) {
       WiFi.hostname(deviceName);
       log("WiFi connected. SSID=%s, IP=%s, channel=%d, RSSI %ddb", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str(), WiFi.channel(), WiFi.RSSI());
     }
-    wifiRoamConnected();                // move to a clearly stronger access point (wifiRoam.h)
+    if(switching) wifiSwitchPoll();     // a network change from the Wi-Fi page (wifiSwitch.h)
+    else wifiRoamConnected();           // move to a clearly stronger access point (wifiRoam.h)
     if( ! mDNSstarted){
       if (MDNS.begin(deviceName)) {
         MDNS.addService("http", "tcp", 80);
@@ -54,7 +128,8 @@ uint32_t WiFiService(struct serviceBlock* _serviceBlock) {
       log("WiFi disconnected.");
     }
     else {
-      wifiRoamDisconnected(UTCtime() - lastDisconnect);   // unlock a roam's access point (wifiRoam.h)
+      if(switching) wifiSwitchPoll();
+      else wifiRoamDisconnected(UTCtime() - lastDisconnect);   // unlock a roam's access point (wifiRoam.h)
       if((UTCtime() - lastDisconnect) >= restartInterval){
         log("WiFi disconnected more than %d minutes, restarting.", restartInterval / 60);
         delay(500);

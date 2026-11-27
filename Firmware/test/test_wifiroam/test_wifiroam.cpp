@@ -1,6 +1,7 @@
 // Wi-Fi roaming decisions (wifiRoam.h): when to scan, and which access point to move to. Tracker F3.
 #include <unity.h>
 #include "wifiRoam.h"
+#include "wifiSwitch.h"
 
 static roamCandidate ap(uint8_t id, int32_t rssi, bool same = true, int32_t ch = 1){
   roamCandidate c{}; memset(c.bssid, 0, 6); c.bssid[5] = id; c.rssi = rssi; c.channel = ch; c.sameSSID = same; return c;
@@ -71,6 +72,25 @@ static void test_avoid_and_scan_timeouts(void){
   TEST_ASSERT_TRUE(roamScanOverdue(t + WIFI_ROAM_SCAN_TIMEOUT_S, t));
 }
 
+// F18: what a network change accepts, and when it is done or goes back.
+static void test_wifi_switch(void){
+  TEST_ASSERT_TRUE(wifiCredentialsValid("Home", "longenough"));
+  TEST_ASSERT_TRUE(wifiCredentialsValid("Cafe", ""));                                        // open network
+  TEST_ASSERT_TRUE(wifiCredentialsValid("12345678901234567890123456789012", "12345678"));   // 32-byte name
+  TEST_ASSERT_TRUE(wifiCredentialsValid("Hex", "0123456789abcdef0123456789abcdef0123456789ABCDEF0123456789abcdef"));
+  TEST_ASSERT_FALSE(wifiCredentialsValid("", "longenough"));
+  TEST_ASSERT_FALSE(wifiCredentialsValid("123456789012345678901234567890123", "longenough"));  // 33
+  TEST_ASSERT_FALSE(wifiCredentialsValid("Home", "short"));
+  TEST_ASSERT_FALSE(wifiCredentialsValid("Home", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg"));
+  TEST_ASSERT_FALSE(wifiCredentialsValid(nullptr, "x"));
+  const uint32_t t = 1800000000;
+  TEST_ASSERT_EQUAL_INT(wifiSwitchWaiting, wifiSwitchCheck(t + 10, t, false));
+  TEST_ASSERT_EQUAL_INT(wifiSwitchDone, wifiSwitchCheck(t + 10, t, true));
+  TEST_ASSERT_EQUAL_INT(wifiSwitchWaiting, wifiSwitchCheck(t + WIFI_SWITCH_TIMEOUT_S - 1, t, false));
+  TEST_ASSERT_EQUAL_INT(wifiSwitchRevert, wifiSwitchCheck(t + WIFI_SWITCH_TIMEOUT_S, t, false));
+  TEST_ASSERT_EQUAL_INT(wifiSwitchDone, wifiSwitchCheck(t + 600, t, true));                  // connected wins
+}
+
 int main(int, char**){
   UNITY_BEGIN();
   RUN_TEST(test_choose_needs_clear_gain);
@@ -80,5 +100,6 @@ int main(int, char**){
   RUN_TEST(test_carls_case);
   RUN_TEST(test_choose_skips_avoided);
   RUN_TEST(test_avoid_and_scan_timeouts);
+  RUN_TEST(test_wifi_switch);
   return UNITY_END();
 }

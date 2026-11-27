@@ -303,9 +303,29 @@
             </div>
 
             <div id="divWiFi" class="body tools color_body" style="display:none">
-                <h3>Disconnect WiFi</h3>
+                <h3>Wi-Fi</h3>
+                <p id="wifiNow" class="text-secondary"></p>
+                <button id="wifiChangeOpen" class="btn btn-primary mb-3" onclick="wifiChangeShow()">Change network&hellip;</button>
+                <div id="wifiChangeForm" style="display:none">
+                <h3>Change network</h3>
+                <p>Connect to another network. If the IoTaWatt can't connect to it within a minute (a wrong
+                    password, out of range), it goes back to the current one.</p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <input type="text" id="wifiSsid" class="form-control w-auto" list="wifiNetworks" placeholder="network name" maxlength="32" autocomplete="off">
+                    <datalist id="wifiNetworks"></datalist>
+                    <button class="btn btn-outline-secondary" onclick="wifiScan()">Scan</button>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <input type="password" id="wifiPsk" class="form-control w-auto" placeholder="password" maxlength="64" autocomplete="new-password">
+                    <button class="btn btn-primary" onclick="wifiChange()">Connect</button>
+                </div>
+                </div>
+                <p id="wifiChangeMsg"></p>
+                <h3>Forget Wi-Fi (setup mode)</h3>
                 <p>
-                    Use this tool to permanently disconnect from the current WiFi network.<br>
+                    Disconnect from the current network. The IoTaWatt keeps measuring without it; to choose a
+                    network again, unplug it and plug it back in: when it starts and can't connect, it offers its
+                    own setup hotspot (<code>iota</code> and a number; the password is the device name).
                 </p>
                 <h3 id="WiFiMsg"></h3>
                 <button id="WiFiButton" class="btn btn-outline-danger actionDelete" onclick="sendDisconnect()">Disconnect</button>
@@ -854,7 +874,65 @@
             reader.readAsText(file);
         }
 
+        // Tools → Wi-Fi: change the network (the device goes back if the new one doesn't connect), or
+        // forget it for the setup hotspot.
+        function wifiScan(tries) {
+            tries = tries || 0;
+            var msg = EbyId("wifiChangeMsg");
+            msg.textContent = "Scanning...";
+            var x = new XMLHttpRequest();
+            x.onreadystatechange = function() {
+                if (this.readyState != 4) return;
+                if (this.status == 202 && tries < 10) { setTimeout(function() { wifiScan(tries + 1); }, 1500); return; }
+                if (this.status != 200) { msg.textContent = "Scan failed (" + this.status + ")."; return; }
+                var list = [];
+                try { list = JSON.parse(this.responseText); } catch (e) {}
+                list.sort(function(a, b) { return b.rssi - a.rssi; });
+                var dl = EbyId("wifiNetworks");
+                dl.innerHTML = "";
+                list.forEach(function(n) {
+                    var o = document.createElement("option");
+                    o.value = n.ssid;
+                    o.textContent = n.rssi + " dBm, channel " + n.channel + (n.open ? ", open" : "");
+                    dl.appendChild(o);
+                });
+                msg.textContent = list.length + " networks found: pick one in the name field.";
+            };
+            x.open("GET", "/wifi/scan", true);
+            x.send();
+        }
+
+        function wifiChange() {
+            var ssid = EbyId("wifiSsid").value, psk = EbyId("wifiPsk").value;
+            var msg = EbyId("wifiChangeMsg");
+            if (!ssid) { msg.textContent = "Enter the network name."; return; }
+            if (!confirm("Connect the IoTaWatt to \"" + ssid + "\"? It goes back to the current network if that fails within a minute.")) return;
+            var x = new XMLHttpRequest();
+            x.onreadystatechange = function() {
+                if (this.readyState != 4) return;
+                msg.textContent = this.responseText || ("Not changed (" + this.status + ").");
+            };
+            x.open("POST", "/wifi", true);
+            x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            x.send("ssid=" + encodeURIComponent(ssid) + "&psk=" + encodeURIComponent(psk));
+            EbyId("wifiPsk").value = "";
+        }
+
+        // The change form opens on request and scans once, so the list is ready to pick from.
+        function wifiChangeShow() {
+            EbyId("wifiChangeOpen").style.display = "none";
+            EbyId("wifiChangeForm").style.display = "block";
+            EbyId("wifiSsid").focus();
+            wifiScan();
+        }
+
         function toolsWiFi() {
+            EbyId("wifiChangeMsg").textContent = "";
+            EbyId("wifiChangeOpen").style.display = "";
+            EbyId("wifiChangeForm").style.display = "none";
+            readFile("/status?wifi", function(r) {
+                try { var w = JSON.parse(r).wifi; EbyId("wifiNow").textContent = "Connected to " + w.SSID + " (" + w.RSSI + " dBm, channel " + w.channel + ", " + w.IP + ")."; } catch (e) {}
+            });
             EbyId("WiFiMsg").innerHTML = "";
             currentBodyPush("divWiFi");
         }

@@ -7,6 +7,7 @@
 #include "uploaders/Uploader_Registry.h"
 #endif
 #include "webGuard.h"
+#include "wifiSwitch.h"
 
 
 /*
@@ -123,6 +124,8 @@ void handleRequest(){
   if(serverOn(authUser,  F("/query"), HTTP_GET, handleQuery)) return;
   if(serverOn(authAdmin, F("/DSTtest"), HTTP_GET, handleDSTtest)) return;   // a diagnostic, not data
   if(serverOn(authAdmin, F("/update"), HTTP_GET, handleUpdate)) return;
+  if(serverOn(authAdmin, F("/wifi"), HTTP_POST, handleWifiChange)) return;       // control plane (wifiSwitch.h)
+  if(serverOn(authAdmin, F("/wifi/scan"), HTTP_GET, handleWifiScan)) return;
 
 
   if(loadFromSdCard(uri)){
@@ -961,6 +964,34 @@ void handleQuery(){
   }
   delete query;
   trace(T_WEB,59);
+}
+
+        // Tools → Wi-Fi: switch a working IoTaWatt to another network, back to the old one if it doesn't
+        // connect (wifiSwitch.h). The answer is sent before switching, while the connection still works.
+
+void handleWifiChange(){
+  String ssid = server.arg(F("ssid"));
+  String psk = server.arg(F("psk"));
+  if( ! wifiCredentialsValid(ssid.c_str(), psk.c_str())){
+    server.send(400, txtPlain_P, F("A network name of 1-32 characters, and a password of 8-63 characters (or none for an open network)."));
+    return;
+  }
+  if(wifiSwitching()){
+    server.send(409, txtPlain_P, F("A network change is already under way."));
+    return;
+  }
+  server.send(200, txtPlain_P, String(F("Switching to ")) + ssid + F(". If it can't connect within a minute, it goes back to ") +
+              WiFi.SSID() + F(". Then open the IoTaWatt again (its address may change on the new network)."));
+  wifiSwitchStart(ssid, psk);
+}
+
+void handleWifiScan(){
+  String json = wifiScanJson();
+  if( ! json.length()){
+    server.send(202, appJson_P, F("{\"scanning\":true}"));
+    return;
+  }
+  server.send(200, appJson_P, json);
 }
 
 void handleUpdate(){

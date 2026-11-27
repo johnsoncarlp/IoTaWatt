@@ -42,6 +42,8 @@ void sendMsgFile(File &dataFile, int32_t relPos);
 void handlePasswords();
 void handleQuery();
 void handleUpdate();
+void handleWifiChange();
+void handleWifiScan();
 void handleDSTtest();
 #ifdef IOTAWATT_HOST_TEST                       // host unit tests: F() yields const char* there
 inline bool serverOn(authLevel l, const char* uri, HTTPMethod m, genericHandler fn){ return serverOn(l, (const __FlashStringHelper*)uri, m, fn); }

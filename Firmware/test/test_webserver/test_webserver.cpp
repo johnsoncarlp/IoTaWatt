@@ -286,6 +286,37 @@ static void test_user_login_gets_data_only(void){
   hostAdminResult = true;
 }
 
+// F18: the Wi-Fi page's network change: validated, answered, then started; one at a time. The scan
+// answers 202 while it runs.
+static void test_wifi_change_and_scan(void){
+  hostWifiSwitches.clear(); hostWifiSwitching = false;
+  auto post = [](const char* ssid, const char* psk) -> const HostResponse& {
+    request({{"ssid", ssid}, {"psk", psk}}); server._uri = "/wifi"; server._method = HTTP_POST; webGuard = WebGuard(); handleRequest();
+    return server.responses.back();
+  };
+  TEST_ASSERT_EQUAL_INT(400, post("", "longenough").code);
+  TEST_ASSERT_EQUAL_INT(400, post("Home", "short").code);
+  TEST_ASSERT_EQUAL_INT(0, (int)hostWifiSwitches.size());
+  const HostResponse& ok = post("Home", "longenough");
+  TEST_ASSERT_EQUAL_INT(200, ok.code);
+  TEST_ASSERT_TRUE(ok.body.find("goes back to TestNet") != std::string::npos);
+  TEST_ASSERT_EQUAL_INT(1, (int)hostWifiSwitches.size());
+  TEST_ASSERT_EQUAL_STRING("Home", hostWifiSwitches[0].first.c_str());
+  hostWifiSwitching = true;
+  TEST_ASSERT_EQUAL_INT(409, post("Other", "longenough").code);
+  hostWifiSwitching = false;
+  hostWifiScan = "";
+  request({}); server._uri = "/wifi/scan"; server._method = HTTP_GET; handleRequest();
+  TEST_ASSERT_EQUAL_INT(202, server.responses.back().code);
+  hostWifiScan = "[{\"ssid\":\"Home\",\"rssi\":-50}]";
+  request({}); server._uri = "/wifi/scan"; server._method = HTTP_GET; handleRequest();
+  TEST_ASSERT_EQUAL_INT(200, server.responses.back().code);
+  TEST_ASSERT_EQUAL_STRING(hostWifiScan.c_str(), server.responses.back().body.c_str());
+  hostAdminResult = false;                                         // control plane: admin only
+  TEST_ASSERT_EQUAL_INT(401, post("Home", "longenough").code);
+  hostAdminResult = true;
+}
+
 // ---- overload guard (webGuard.cpp) ----
 static void test_guard_cost(void){
   TEST_ASSERT_EQUAL_INT(webHeavy, webRequestCost("/status"));
@@ -552,6 +583,7 @@ int main(int, char**){
   RUN_TEST(test_query_streaming_and_timeout_abort);
   RUN_TEST(test_influxdb_v1_reconfig_retention);
   RUN_TEST(test_user_login_gets_data_only);
+  RUN_TEST(test_wifi_change_and_scan);
   RUN_TEST(test_guard_cost);
   RUN_TEST(test_guard_bucket);
   RUN_TEST(test_guard_per_client);

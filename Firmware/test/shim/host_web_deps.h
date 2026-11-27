@@ -103,6 +103,12 @@ inline void  getSamples() { server.send(200, "text/plain", "samples"); }
 inline bool  installUpdate(String) { return false; }
 inline bool  unpackUpdate(String) { return false; }
 inline uint32_t getFeedData() { return 0; }          // GetFeedData.cpp: uint32_t getFeedData()
+inline std::vector<std::pair<std::string, std::string>> hostWifiSwitches;   // wifiSwitchStart() calls (WiFi.cpp)
+inline bool   hostWifiSwitching = false;
+inline String hostWifiScan;                       // "" = still scanning
+inline bool   wifiSwitchStart(const String& s, const String& p) { hostWifiSwitches.push_back({s.str(), p.str()}); return true; }
+inline bool   wifiSwitching() { return hostWifiSwitching; }
+inline String wifiScanJson() { return hostWifiScan; }
 inline bool getNewConfig = false;
 inline uint8_t configSHA256[32];
 inline std::map<std::string, std::string> hostSpiffs;
