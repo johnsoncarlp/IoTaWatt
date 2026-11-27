@@ -515,6 +515,8 @@
         var serverConfig;
         var tables; // tables as Js Object
         var editing = false;
+        // Unsaved Setup changes: the menu opens Graph+ and Files in this tab, so leaving asks first.
+        window.addEventListener("beforeunload", function(e) { if (editing) { e.preventDefault(); e.returnValue = ""; } });
         var editingScript = false;
         var getStatus = false;
         var calVTvolts = 0;

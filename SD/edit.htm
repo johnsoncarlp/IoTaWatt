@@ -166,6 +166,9 @@
       // file's own name, which the path box shows and may change. A file can also be dropped on the
       // toolbar or on a folder. Existing files are replaced only after asking; the IoTaWatt's own files
       // are refused with a pointer to the right tool. Progress and results show in the message area.
+      // Unsaved edits: the menu now opens pages in this tab, so leaving asks first.
+      var editorDirty = false;
+      window.addEventListener("beforeunload", function(e){ if(editorDirty){ e.preventDefault(); e.returnValue = ""; } });
       var currentFolder = "/";
       function setCurrentFolder(folder){
         currentFolder = folder || "/";
@@ -643,7 +646,8 @@
         //post
         function httpPostProcessRequest(){
           if (xmlHttp.readyState == 4){
-            if(xmlHttp.status != 200) alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
+            if(xmlHttp.status != 200) showMessage("Not saved: " + file + " (" + (xmlHttp.responseText || xmlHttp.status) + ")", "error");
+            else { editorDirty = false; showMessage("Saved " + file, "ok"); }
           }
         }
         function httpPost(filename, data, type){
@@ -662,6 +666,7 @@
             if(xmlHttp.status == 200) editor.setValue(xmlHttp.responseText);
             else editor.setValue("");
             editor.clearSelection();
+            editorDirty = false;                          // as loaded
           }
         }
         function httpGet(theUrl){
@@ -703,7 +708,9 @@
             readOnly: false
         });
         httpGet(file);
+        editor.on("change", function(){ editorDirty = true; });
         editor.loadUrl = function(filename){
+          if(editorDirty && !confirm(file + " has changes that aren't saved (Ctrl+S saves). Open " + filename + " anyway?")) return;
           file = filename;
           lang = getLangFromFilename(file);
           type = "text/"+lang;

@@ -4,7 +4,8 @@
  * A page includes bootstrap.min.css, bootstrap.min.js and this file, and puts <nav id="iotanav"></nav>
  * where the bar goes. On the main page (index.htm) the Setup, Status and Tools entries call its own
  * functions; on the other pages they go to the main page, which opens the section named after the
- * '#' (e.g. "/#inputs"). Graph+, Files and the message log open in their own tab, from every page.
+ * '#' (e.g. "/#inputs"). Graph+ and Files open in the same tab; only the message log (a text file, read
+ * beside the page it explains) opens a tab of its own.
  *
  * The theme follows the system's light/dark setting (Bootstrap's data-bs-theme on <html>).
  */
@@ -31,7 +32,7 @@
     ];
     var tools = [
         ["files", "Files", null, "edit.htm"],
-        ["messages", "Message log", null, "iotawatt/iotamsgs.txt?textpos=-10000"],   // its last 10,000 bytes
+        ["messages", "Message log", null, "iotawatt/iotamsgs.txt?textpos=-10000", true],   // its last 10,000 bytes, own tab
         ["backup", "Backup and restore", "toolsBackup"],
         ["wifi", "Wi-Fi", "toolsWiFi"],
         ["restart", "Restart", "toolsRestart"]
@@ -51,11 +52,13 @@
         return e;
     }
 
-    // A menu entry: a main page section, or a page of its own (opened in a new tab).
+    // A menu entry: a main page section, or a page of its own (s[3]), in this tab unless it asks for a
+    // tab of its own (s[4]: the message log).
     function entry(s, cls) {
         var a;
         if (s[3]) {
-            a = el("a", { "class": cls, href: s[3], target: "_blank", rel: "noopener" }, s[1]);
+            a = el("a", { "class": cls, href: s[3] }, s[1]);
+            if (s[4]) { a.target = "_blank"; a.rel = "noopener"; }
             if (page === s[3]) { a.classList.add("active"); a.removeAttribute("target"); }
         } else if (isMain()) {
             a = el("a", { "class": cls, href: "#" + s[0], "data-section": s[0] }, s[1]);
