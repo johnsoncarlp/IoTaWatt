@@ -151,6 +151,12 @@
       #workarea { flex: 1; display: flex; min-height: 0; }
       #side { width: 220px; flex-shrink: 0; overflow: auto; padding: .5rem;
               border-right: var(--bs-border-width) solid var(--bs-border-color); }
+      #editpane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+      #editbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; padding: .3rem .5rem;
+                 border-bottom: var(--bs-border-width) solid var(--bs-border-color); }
+      #editbar-file { font-family: var(--bs-font-monospace); }
+      #editbar-state { color: var(--bs-secondary-color); font-size: .85em; }
+      #editbar-state.unsaved { color: var(--bs-warning-text-emphasis, #b58105); font-weight: 600; }
       #editor, #preview { flex: 1; position: relative; min-width: 0; }
       #preview { background-color: var(--bs-tertiary-bg); padding: 5px; overflow: auto; }
       #msgarea { margin: 1rem 0 0; font-size: .85rem; color: var(--bs-secondary-color); }
@@ -660,7 +666,7 @@
         function httpPostProcessRequest(){
           if (xmlHttp.readyState == 4){
             if(xmlHttp.status != 200) showMessage("Not saved: " + file + " (" + (xmlHttp.responseText || xmlHttp.status) + ")", "error");
-            else { editorDirty = false; showMessage("Saved " + file, "ok"); }
+            else { editorDirty = false; showMessage("Saved " + file, "ok"); editor.updateBar(); }
           }
         }
         function httpPost(filename, data, type){
@@ -680,6 +686,7 @@
             else editor.setValue("");
             editor.clearSelection();
             editorDirty = false;                          // as loaded
+            editor.updateBar();
           }
         }
         function httpGet(theUrl){
@@ -700,8 +707,7 @@
             name: 'saveCommand',
             bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
             exec: function(editor) {
-              if(tail){ showMessage(file + " is open read-only (only its end is shown): not saved.", "error"); return; }
-              httpPost(file, editor.getValue()+"", type);
+              editor.saveFile();
             },
             readOnly: false
         });
@@ -722,9 +728,28 @@
             readOnly: false
         });
         httpGet(file);
-        editor.on("change", function(){ editorDirty = true; });
+        // The bar above the editor: the open file, whether it has unsaved changes, Save and Discard changes.
+        editor.updateBar = function(){
+          document.getElementById("editbar-file").textContent = file || "";
+          var state = document.getElementById("editbar-state");
+          state.textContent = tail ? "read-only: only its end is shown" : (editorDirty ? "unsaved changes" : "saved");
+          state.className = editorDirty && !tail ? "unsaved" : "";
+          document.getElementById("editbar-save").disabled = tail || !editorDirty;
+          document.getElementById("editbar-revert").disabled = tail || !editorDirty;
+        };
+        editor.saveFile = function(){
+          if(tail || !file) return;
+          httpPost(file, editor.getValue() + "", type);
+        };
+        document.getElementById("editbar-save").onclick = function(){ editor.saveFile(); };
+        document.getElementById("editbar-revert").onclick = function(){
+          if(!confirm("Discard the changes to " + file + " and reload it as saved?")) return;
+          editorDirty = false;
+          editor.loadUrl(file);
+        };
+        editor.on("change", function(){ if(!editorDirty){ editorDirty = true; editor.updateBar(); } });
         editor.loadTail = function(filename, size){
-          if(editorDirty && !confirm(file + " has changes that aren't saved (Ctrl+S saves). Open " + filename + " anyway?")) return;
+          if(editorDirty && !confirm(file + " has changes that aren't saved (Save, or Ctrl+S). Open " + filename + " anyway?")) return;
           file = filename;
           tail = true;
           editor.setReadOnly(true);
@@ -732,9 +757,10 @@
           httpGet(file + "?textpos=-" + TEXT_OPEN_LIMIT);
           showMessage(filename + " is " + sizeText(size) + ": showing its last " + sizeText(TEXT_OPEN_LIMIT) +
                       ", read-only. Download it (right-click) for the whole file.");
+          editor.updateBar();
         }
         editor.loadUrl = function(filename){
-          if(editorDirty && !confirm(file + " has changes that aren't saved (Ctrl+S saves). Open " + filename + " anyway?")) return;
+          if(editorDirty && !confirm(file + " has changes that aren't saved (Save, or Ctrl+S). Open " + filename + " anyway?")) return;
           tail = false;
           editor.setReadOnly(false);
           file = filename;
@@ -763,8 +789,16 @@
         <div id="tree"></div>
         <div id="msgarea">Open a folder to upload into it, or drop a file on it.</div>
       </div>
-      <div id="editor"></div>
-      <div id="preview" style="display:none;"></div>
+      <div id="editpane">
+        <div id="editbar">
+          <span id="editbar-file"></span>
+          <span id="editbar-state"></span>
+          <button id="editbar-save" class="btn btn-sm btn-primary" disabled title="Save (Ctrl+S)">Save</button>
+          <button id="editbar-revert" class="btn btn-sm btn-outline-secondary" disabled title="Reload the file as saved">Discard changes</button>
+        </div>
+        <div id="editor"></div>
+        <div id="preview" style="display:none;"></div>
+      </div>
     </div>
     <iframe id=download-frame style='display:none;'></iframe>
   </body>
