@@ -23,7 +23,8 @@ Most of it applies here too.
 Fixes for bugs that also affect the original firmware are offered back upstream as small, separate
 pull requests.
 
-The firmware is licensed under the GNU General Public License v3, as the original ([LICENSE](LICENSE)).
+The firmware is licensed under the GNU General Public License v3, as the original ([LICENSE](LICENSE)). The libraries
+built into it keep their own licences: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## What's different
 
