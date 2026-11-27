@@ -65,8 +65,7 @@
             a.addEventListener("click", function (e) {       // also when the '#' is already this one
                 e.preventDefault();
                 if (a.classList.contains("disabled")) return;
-                history.replaceState(null, "", "#" + s[0]);
-                open(s[0]);
+                if (open(s[0])) { history.replaceState(null, "", "#" + s[0]); shownHash = location.hash; }
             });
         } else {
             a = el("a", { "class": cls, href: "index.htm#" + s[0] }, s[1]);
@@ -126,15 +125,22 @@
     }
 
     // Main page: open a section (the '#'; Status when there is none), once the configuration is loaded.
+    // Returns whether it opened: the page refuses while a form is open and the user keeps it.
     var configReady = false;
+    var shownHash = "";                                  // the '#' of the section on show
     function open(key) {
-        if (!isMain() || !configReady) return;
+        if (!isMain() || !configReady) return false;
         var fn = sections[key] || sections.status;
         if (typeof window[fn] === "function" && typeof window.mainMenuButton === "function") {
-            window.mainMenuButton(null, window[fn]);
+            return window.mainMenuButton(null, window[fn]) !== false;
         }
+        return false;
     }
-    function route() { open(location.hash.replace(/^#/, "")); }
+    // The address changed ('#' typed, Back, Forward): open that section, or put the address back.
+    function route() {
+        if (open(location.hash.replace(/^#/, ""))) shownHash = location.hash;
+        else if (configReady) history.replaceState(null, "", location.pathname + location.search + shownHash);
+    }
 
     window.iotanav = {
         // A firmware version as people read it: "03_00_00" -> "3.0.0", "03_00_d7" -> "3.0-d7".
@@ -169,6 +175,7 @@
                 var body = document.getElementById("mainBody");
                 if (body && body.style.display === "none") {
                     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+                    shownHash = "";
                     open("status");
                 }
             }, 0);

@@ -3350,12 +3350,18 @@
         /********************************************************************************************
          *                       Main menu navigation.
          * *****************************************************************************************/
+        // Open a section from the menu. A form that is open (editing) is left only when the user agrees;
+        // returns whether the section opened, so the menu changes the address only then.
         function mainMenuButton(obj, handler) {
-            if (!(editing || editingScript)) {
-                currentBodyPop();
-                resetDisplay();
-                handler();
+            if (editing || editingScript) {
+                if (!confirm("The form that is open hasn't been saved. Leave it, and discard any changes?")) return false;
+                editing = false;
+                editingScript = false;
             }
+            currentBodyPop();
+            resetDisplay();
+            handler();
+            return true;
         }
 
         function currentBodyPop() {
