@@ -223,8 +223,10 @@
 #source-table .feed-delete { width: 2rem; text-align: center; color: #fff; border-radius: var(--bs-border-radius); }
 
 .graph-bound { width: 100%; }
-#placeholder .flot-text, #placeholder .legend { color: var(--bs-body-color); }
-#placeholder .legend table { color: var(--bs-body-color); }
+/* Graph+ chart (uPlot): theme colours, and a legend that wraps on narrow screens */
+#placeholder .u-legend { color: var(--bs-body-color); font-size: .875rem; }
+#placeholder .u-legend .u-series { padding: 2px 6px; }
+#placeholder .u-select { background: rgba(var(--bs-primary-rgb), .15); }
 
 .graph-table-scroll { overflow-x: auto; }
 .data-table td, .data-table th { text-align: center; vertical-align: middle; white-space: nowrap; }

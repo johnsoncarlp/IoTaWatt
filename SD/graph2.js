@@ -7,15 +7,71 @@ var series = []; // All of the series available, loaded from initial query
 var feedlist = []; // Currently selected series+units
 var yaxes = []; // array of descriptors for currently active yaxes
 var response = {}; // raw response from last data query
+var chart = null; // the uPlot chart on show
 
 var loading = false; // semaphores used to control asynchronous data query
 var reload = false;
 var refreshTimer;
 var embed = false; // embedded graph i.e. only displays graph placeholder
 
-var path = ""; //https://" + location.host; // used to call home
-// path = "http://iotawatt.local"; // Temp: Local development (Can use the following Chrome extension to allow remote Ajax calls: https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf?hl=en)
+var path = ""; // used to call home
 const queryParameters = new URLSearchParams(window.location.search);
+
+//*********************************************************************************************
+//                      Small DOM and request helpers (no jQuery)
+//*********************************************************************************************
+
+function byId(id) { return document.getElementById(id); }
+function all(selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); }
+
+// Show or hide elements: an element, or every element a selector matches.
+function setShown(target, shown) {
+  (typeof target == "string" ? all(target) : [target]).forEach(function(e) {
+    e.style.display = shown ? "" : "none";
+  });
+}
+
+// Text from the device or a configuration, made safe to put in HTML.
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+// One handler for every element matching selector, present now or added later.
+function onEvent(event, selector, handler) {
+  document.addEventListener(event, function(e) {
+    var target = e.target.closest ? e.target.closest(selector) : null;
+    if (target) handler.call(target, e);
+  });
+}
+
+function fire(element, event) { element.dispatchEvent(new Event(event, { bubbles: true })); }
+
+// An asynchronous request. body (a string) makes it a form POST. ok gets the reply text.
+function request(method, url, body, ok, fail, done) {
+  var x = new XMLHttpRequest();
+  x.open(method, url, true);
+  if (body != null) x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+  x.onload = function() {
+    if (x.status >= 200 && x.status < 300) { if (ok) ok(x.responseText); }
+    else if (fail) fail(x);
+    if (done) done();
+  };
+  x.onerror = function() { if (fail) fail(x); if (done) done(); };
+  x.send(body);
+}
+
+// The same, for a JSON reply: ok gets the parsed value; a reply that isn't JSON counts as failed.
+function requestJSON(method, url, body, ok, fail, done) {
+  request(method, url, body, function(text) {
+    var value;
+    try { value = JSON.parse(text); } catch (e) { if (fail) fail(null); return; }
+    if (ok) ok(value);
+  }, fail, done);
+}
+
+function isNumeric(v) { return !isNaN(parseFloat(v)) && isFinite(v); }
 
 //*********************************************************************************************
 //                      Predefined reporting periods that can be selected
@@ -57,30 +113,33 @@ var periodTable = [
   { label: "2 years ago", begin: "y-2y", end: "y-1y" },
 ];
 
-function build_period_selector() {
-  $("#select-period").empty();
-  for (t in periodTable) {
-    $("#select-period").append(
-      "<option value=" + t + ">" + periodTable[t].label + "</option>"
-    );
+// A select's options, and the first one whose text contains want selected (then "changed", as the user would).
+function fillSelect(select, options, want) {
+  select.innerHTML = "";
+  options.forEach(function(o) {
+    var opt = document.createElement("option");
+    opt.value = o.value;
+    opt.textContent = o.text;
+    select.appendChild(opt);
+  });
+  for (var i = 0; i < select.options.length; i++) {
+    if (select.options[i].textContent.indexOf(want) >= 0) { select.selectedIndex = i; break; }
   }
-  $("#select-period option:contains(" + period + ")")
-    .prop("selected", true)
-    .change();
+  fire(select, "change");
+}
+
+function build_period_selector() {
+  fillSelect(byId("select-period"), periodTable.map(function(p, t) { return { value: t, text: p.label }; }), period);
 }
 
 // Handle period select
 
-$("#select-period").change(function() {
-  periodIndex = $(this).val();
+byId("select-period").addEventListener("change", function() {
+  periodIndex = this.value;
   period = periodTable[periodIndex].label;
   custom_dates = periodIndex == 0;
   refresh &= periodTable[periodIndex].end == "s";
-  if (refresh) {
-    $("#refresh-text").html(" Freeze");
-  } else {
-    $("#refresh-text").html(" Refresh");
-  }
+  byId("refresh-text").textContent = refresh ? " Freeze" : " Refresh";
   query();
 });
 
@@ -100,15 +159,7 @@ var units = [
   { unit: "PF", group: "P", label: "PF", stat: " ", dp: 3, min: "", max: "" },
   { unit: "Hz", group: "V", label: "Hz", stat: " ", dp: 2, min: "", max: "" },
   { unit: "VAR", group: "P", label: "VAR", stat: "I", dp: 1, min: "", max: "" },
-  {
-    unit: "VARh",
-    group: "P",
-    label: "VARh",
-    stat: "S",
-    dp: 2,
-    min: "",
-    max: "",
-  },
+  { unit: "VARh", group: "P", label: "VARh", stat: "S", dp: 2, min: "", max: "" },
 ];
 
 // A colour from the page theme (light or dark), for the chart
@@ -121,28 +172,25 @@ function themeColor(name) {
 
 function build_units_selector() {
   var html = "";
-  for (u in units) {
-    html += "<button class='btn btn-sm btn-outline-primary unit-buttons";
-    if (units[u].unit == unit) {
-      html += " active";
-    }
-    html += "'>" + units[u].unit + "</button>";
+  for (var u in units) {
+    html += "<button class='btn btn-sm btn-outline-primary unit-buttons" + (units[u].unit == unit ? " active" : "") +
+      "'>" + units[u].unit + "</button>";
   }
-  $("#units-select").html(html);
+  byId("units-select").innerHTML = html;
 }
 
 function unitindex(unit) {
-  for (u in units) {
+  for (var u in units) {
     if (units[u].unit == unit) return u;
   }
 }
 
 // Handle unit select button click
 
-$("body").on("click", ".unit-buttons", function() {
-  $(".unit-buttons").removeClass("active");
-  $(this).addClass("active");
-  unit = $(this).html();
+onEvent("click", ".unit-buttons", function() {
+  all(".unit-buttons").forEach(function(b) { b.classList.remove("active"); });
+  this.classList.add("active");
+  unit = this.textContent;
   build_source_list();
 });
 
@@ -163,24 +211,12 @@ var groups = [
   { group: "all", query: "all" },
 ];
 
-// build group select options
-
 function build_group_options() {
-  $("#select-group").empty();
-  for (g in groups) {
-    $("#select-group").append(
-      "<option value='" + groups[g].group + "'>" + groups[g].group + "</option>"
-    );
-  }
-  $("#select-group option:contains(" + group + ")")
-    .prop("selected", true)
-    .change();
+  fillSelect(byId("select-group"), groups.map(function(g) { return { value: g.group, text: g.group }; }), group);
 }
 
-// Handle group option select
-
-$("#select-group").change(function() {
-  group = $(this).val();
+byId("select-group").addEventListener("change", function() {
+  group = this.value;
   query();
 });
 
@@ -238,14 +274,14 @@ var refresh = false;
 //        Graph Reset - make a fresh start
 //********************************************************************************************
 
-$("#graph-reset").click(function() {
+byId("graph-reset").addEventListener("click", function() {
   feedlist = [];
   response.data = [];
-  $("#graph-name").val("");
-  $("#graph-save").hide();
-  $("#graph-delete").hide();
-  $(".reset-hide").hide();
-  $("#refresh-text").html(" Refresh");
+  byId("graph-name").value = "";
+  setShown(byId("graph-save"), false);
+  setShown(byId("graph-delete"), false);
+  setShown(".reset-hide", false);
+  byId("refresh-text").textContent = " Refresh";
 
   period = initialperiod;
   build_period_selector();
@@ -258,11 +294,11 @@ $("#graph-reset").click(function() {
 
   build_source_list();
 
-  for (u in units) {
+  for (var u in units) {
     units[u].min = "";
     units[u].max = "";
   }
-  $("#showSourceOptions").click();
+  byId("showSourceOptions").click();
 });
 
 //********************************************************************************************
@@ -283,19 +319,14 @@ function unitFormat(val, unit) {
   if (unit == "Hz") {
     return Number(val).toFixed(2) + " Hz";
   }
-  for (u in units) {
+  for (var u in units) {
     if (units[u].unit == unit) {
       if (val == 0) {
         return "0 " + units[u].label;
       }
-      for (f in formats) {
+      for (var f in formats) {
         if (Math.abs(val) < formats[f].max) {
-          return (
-            (Number(val) / formats[f].div).toFixed(formats[f].dp) +
-            " " +
-            formats[f].prefix +
-            units[u].label
-          );
+          return (Number(val) / formats[f].div).toFixed(formats[f].dp) + " " + formats[f].prefix + units[u].label;
         }
       }
     }
@@ -338,12 +369,6 @@ function DateInput(id) {
   };
 }
 
-// Tooltip time, e.g. "5:17 PM Wed, Nov 25", in the browser's language
-function tooltipTime(d) {
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " " +
-    d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-}
-
 // "YYYY-MM-DD", "HH:mm", "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD_HHmm": the formats this page uses
 function formatDate(d, f) {
   function p(n) { return n < 10 ? "0" + n : "" + n; }
@@ -354,6 +379,12 @@ function formatDate(d, f) {
 var beginDate = new DateInput("request-start");
 var endDate = new DateInput("request-end");
 
+function showError(text) {
+  var e = byId("error");
+  e.textContent = text;
+  setShown(e, true);
+}
+
 // A date the user changed: a custom period, graphed once the field is left alone for a moment.
 var dateTimer = null;
 function dateChanged(which, other, setLimit) {
@@ -362,10 +393,10 @@ function dateChanged(which, other, setLimit) {
   // A typed date isn't held to min/max like a picked one: don't query a reversed range.
   if (beginDate.viewDate().d >= endDate.viewDate().d) {
     clearTimeout(dateTimer);
-    $("#error").text("The start must be before the end.").show();
+    showError("The start must be before the end.");
     return;
   }
-  $("#error").hide();
+  setShown(byId("error"), false);
   custom_dates = true;
   clearTimeout(dateTimer);
   dateTimer = setTimeout(query, 600);
@@ -386,18 +417,22 @@ function set_custom_dates(begin, end) {
 //        Zoom, Pan, Reload, legend
 //********************************************************************************************
 
-$(".zoom").click(function() {
-  custom_dates = true;
-  var time_adj = round2group((periodDuration * (1 - $(this).val())) / 2);
-  set_custom_dates(response.range[0] + time_adj, response.range[1] - time_adj);
-  query();
+all(".zoom").forEach(function(b) {
+  b.addEventListener("click", function() {
+    custom_dates = true;
+    var time_adj = round2group((periodDuration * (1 - this.value)) / 2);
+    set_custom_dates(response.range[0] + time_adj, response.range[1] - time_adj);
+    query();
+  });
 });
 
-$(".pan").click(function() {
-  custom_dates = true;
-  var time_adj = round2group(periodDuration * $(this).val());
-  set_custom_dates(response.range[0] + time_adj, response.range[1] + time_adj);
-  query();
+all(".pan").forEach(function(b) {
+  b.addEventListener("click", function() {
+    custom_dates = true;
+    var time_adj = round2group(periodDuration * this.value);
+    set_custom_dates(response.range[0] + time_adj, response.range[1] + time_adj);
+    query();
+  });
 });
 
 function set_refresh() {
@@ -405,16 +440,16 @@ function set_refresh() {
     refreshTimer = setTimeout(function() {
       query();
     }, interval * 1000);
-    $("#refresh-text").html(" Freeze");
+    byId("refresh-text").textContent = " Freeze";
   } else {
-    $("#refresh-text").html(" Refresh");
+    byId("refresh-text").textContent = " Refresh";
   }
 }
 
-$("#refresh").click(function() {
+byId("refresh").addEventListener("click", function() {
   if (refresh) {
     clearTimeout(refreshTimer);
-    $("#refresh-text").html(" Refresh");
+    byId("refresh-text").textContent = " Refresh";
     refresh = false;
   } else {
     refresh = true;
@@ -429,140 +464,66 @@ function round2group(time) {
   return time - (time % round);
 }
 
-$("#show-legend").click(function() {
-  if (showLegend) {
-    showLegend = false;
-    $("#show-legend").html("Show Legend");
-    graph();
-  } else {
-    showLegend = true;
-    $("#show-legend").html("Hide Legend");
-    graph();
-  }
+byId("show-legend").addEventListener("click", function() {
+  showLegend = !showLegend;
+  this.textContent = showLegend ? "Hide Legend" : "Show Legend";
+  graph();
 });
 
 //********************************************************************************************
-//        Handle cursor select range and tooltip
+//        A range picked on the chart (drag across it): graph that range
 //********************************************************************************************
 
-$("#placeholder").bind("plotselected", function(event, ranges) {
+function rangeSelected(from, to) {
   custom_dates = true;
-  set_custom_dates(
-    ranges.xaxis.from / 1000 - ((ranges.xaxis.from / 1000) % interval),
-    ranges.xaxis.to / 1000 + interval - ((ranges.xaxis.to / 1000) % interval)
-  );
+  set_custom_dates(from - (from % interval), to + interval - (to % interval));
   query();
-});
-
-$("#placeholder").bind("plothover", function(event, pos, item) {
-  $("#tooltip").remove();
-  if (item) {
-    var value = item.series.data[item.dataIndex][1];
-    var stackValue = item.datapoint[1];
-    var dispValue = unitFormat(value, yaxes[item.series.yaxis.n - 1].unit);
-    var dispStackValue =
-      value == stackValue ?
-      "" :
-      "<br><span style='font-size:11px'>stack</span><br>" +
-      unitFormat(stackValue, yaxes[item.series.yaxis.n - 1].unit);
-    if (item.series.stack) {
-      stackValue = "";
-    }
-    tooltip(
-      item.pageX,
-      item.pageY,
-      "<span style='font-size:11px'>" +
-      item.series.label +
-      "</span><br>" +
-      dispValue +
-      dispStackValue +
-      "<br><span style='font-size:11px'>" +
-      tooltipTime(new Date(item.datapoint[0])) +
-      "</span>",
-      themeColor("--bs-body-bg")
-    );
-  }
-});
-
-function tooltip(x, y, contents, bgColour) {
-  var offset = 15; // use higher values for a little spacing between `x,y` and tooltip
-  var elem = $('<div id="tooltip">' + contents + "</div>")
-    .css({
-      position: "absolute",
-      display: "none",
-      "font-weight": "bold",
-      border: "1px solid " + themeColor("--bs-border-color"),
-      "border-radius": "4px",
-      padding: "2px 6px",
-      color: themeColor("--bs-body-color"),
-      "background-color": bgColour,
-      opacity: "0.9",
-    })
-    .appendTo("body")
-    .fadeIn(200);
-
-  var elemY = y - elem.height() - offset;
-  var elemX = x - elem.width() - offset;
-  if (elemY < 0) {
-    elemY = 0;
-  }
-  if (elemX < 0) {
-    elemX = 0;
-  }
-  elem.css({
-    top: elemY,
-    left: elemX,
-  });
 }
 
 //********************************************************************************************
 //        Handle window and graph resize
 //********************************************************************************************
 
-$(window).resize(function() {
-  graph_resize();
-  graph();
+var resizeTimer = null;
+window.addEventListener("resize", function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function() {
+    if (chart) chart.setSize(chartSize());
+  }, 100);
 });
 
+// The chart's plotting area: the full width, half as high (as before), within the window.
+function chartSize() {
+  var width = byId("placeholder_bound").clientWidth || 600;
+  var height = Math.round(Math.min(width * 0.5, window.innerHeight * 0.75));
+  return { width: width, height: Math.max(height, 200) };
+}
+
 function graph_resize() {
-  var top_offset = 0;
-  var placeholder_bound = $("#placeholder_bound");
-  var placeholder = $("#placeholder");
-  var width = placeholder_bound.width();
-  var height = width * 0.5;
-  placeholder.width(width);
-  placeholder_bound.height(height - top_offset);
-  placeholder.height(height - top_offset);
+  if (chart) chart.setSize(chartSize());
 }
 
 //********************************************************************************************
 //        CSV time-format, null-values, copy to clipboard, download
 //********************************************************************************************
 
-$("#csvtimeformat").change(function() {
-  printcsv();
+byId("csvtimeformat").addEventListener("change", function() { build_CSV(); });
+byId("csvnullvalues").addEventListener("change", function() { build_CSV(); });
+
+byId("copycsv").addEventListener("click", function() {
+  var textArea = byId("csv");
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(textArea.value);
+  } else {
+    textArea.select();
+    document.execCommand("Copy");
+  }
 });
 
-$("#csvnullvalues").change(function() {
-  printcsv();
-});
-
-$("#copycsv").click(function() {
-  var textArea = document.getElementById("csv");
-  textArea.select();
-  document.execCommand("Copy");
-});
-
-$("#downloadcsv").click(function() {
+byId("downloadcsv").addEventListener("click", function() {
   var element = document.createElement("a");
-  element.setAttribute(
-    "href",
-    "data:text/csv;charset=utf-8," + encodeURIComponent($("#csv").html())
-  );
-  element.setAttribute(
-    "download",
-    "iotawatt_" + formatDate(new Date(), "YYYY-MM-DD_HHmm") + ".csv"
-  );
+  element.setAttribute("href", "data:text/csv;charset=utf-8," + encodeURIComponent(byId("csv").value));
+  element.setAttribute("download", "iotawatt_" + formatDate(new Date(), "YYYY-MM-DD_HHmm") + ".csv");
   element.style.display = "none";
   document.body.appendChild(element);
   element.click();
@@ -573,102 +534,64 @@ $("#downloadcsv").click(function() {
 //        Detail Lines - color, type(line/bar), fill, stack, decimals, scale
 //********************************************************************************************
 
-$("body").on("change", ".linecolor", function() {
-  feedlist[$(this).attr("feedindex")].color = $(this).val();
+function feedOf(element) { return feedlist[element.getAttribute("feedindex")]; }
+
+onEvent("change", ".linecolor", function() { feedOf(this).color = this.value; graph(); });
+
+onEvent("click", ".line-bar", function() {
+  this.textContent = this.textContent == "Line" ? "Bar" : "Line";
+  feedOf(this).plottype = this.textContent;
   graph();
 });
 
-$("body").on("click", ".line-bar", function() {
-  if ($(this).html() == "Line") {
-    $(this).html("Bar");
-  } else {
-    $(this).html("Line");
-  }
-  feedlist[$(this).attr("feedindex")].plottype = $(this).html();
-  graph();
-});
-
-$("body").on("change", ".fill", function() {
-  feedlist[$(this).attr("feedindex")].fill = $(this)[0].checked;
-  graph();
-});
-
-$("body").on("change", ".stack", function() {
-  feedlist[$(this).attr("feedindex")].stack = $(this)[0].checked;
-  graph();
-});
-
-$("body").on("change", ".accrue", function() {
-  feedlist[$(this).attr("feedindex")].accrue = $(this)[0].checked;
-  graph();
-});
-
-$("body").on("change", ".decimalpoints", function() {
-  feedlist[$(this).attr("feedindex")].dp = $(this).val();
-  query();
-});
-
-$("body").on("change", ".scale", function() {
-  feedlist[$(this).attr("feedindex")].scale = $(this).val();
-  graph();
-});
+onEvent("change", ".fill", function() { feedOf(this).fill = this.checked; graph(); });
+onEvent("change", ".stack", function() { feedOf(this).stack = this.checked; graph(); });
+onEvent("change", ".accrue", function() { feedOf(this).accrue = this.checked; graph(); });
+onEvent("change", ".decimalpoints", function() { feedOf(this).dp = this.value; query(); });
+onEvent("change", ".scale", function() { feedOf(this).scale = this.value; graph(); });
 
 //********************************************************************************************
 //        Yaxes min and max
 //********************************************************************************************
 
-$("body").on("change", ".ymin", function() {
-  if ($(this).val() == "auto") $(this).val("");
-  var val = $(this).val();
-  if (val == "" || $.isNumeric(val)) {
-    units[$(this).attr("unitindex")].min = $(this).val();
+function yLimitChanged(input, which) {
+  if (input.value == "auto") input.value = "";
+  var val = input.value;
+  if (val == "" || isNumeric(val)) {
+    units[input.getAttribute("unitindex")][which] = val;
   }
   graph();
-});
-
-$("body").on("change", ".ymax", function() {
-  if ($(this).val() == "auto") $(this).val("");
-  var val = $(this).val();
-  if (val == "" || $.isNumeric(val)) {
-    units[$(this).attr("unitindex")].max = $(this).val();
-  }
-  graph();
-});
+}
+onEvent("change", ".ymin", function() { yLimitChanged(this, "min"); });
+onEvent("change", ".ymax", function() { yLimitChanged(this, "max"); });
 
 //********************************************************************************************
 //        Detail Table select - CSV/Options/Statistics,Yaxis
 //********************************************************************************************
 
-$(".data-tables").hide();
-$(".data-table").hide();
-$(".show-tables").click(function() {
-  $(".show-tables").removeClass("active");
-  $(this).addClass("active");
-  $(".data-table").hide();
-  if ($(this).val() == "stats") {
-    $("#sourceStatsTable").show();
-  } else if ($(this).val() == "options") {
-    $("#sourceOptionsTable").show();
-  } else if ($(this).val() == "yaxes") {
-    $("#yaxesTable").show();
-  } else if ($(this).val() == "CSV") {
-    $("#CSVgroup").show();
-  }
+setShown(".data-tables", false);
+setShown(".data-table", false);
+all(".show-tables").forEach(function(b) {
+  b.addEventListener("click", function() {
+    all(".show-tables").forEach(function(x) { x.classList.remove("active"); });
+    this.classList.add("active");
+    setShown(".data-table", false);
+    var table = { stats: "sourceStatsTable", options: "sourceOptionsTable", yaxes: "yaxesTable", CSV: "CSVgroup" }[this.value];
+    if (table) setShown(byId(table), true);
+  });
 });
 
-$("#showSourceOptions").click();
+byId("showSourceOptions").click();
 
 //********************************************************************************************
 //        re-arrange detail table entries
 //********************************************************************************************
 
-$("body").on("click", ".move-feed", function() {
-  var feedid = $(this).attr("feedid") * 1;
-  var curpos = parseInt(feedid);
-  var moveby = parseInt($(this).attr("moveby"));
-  var newpos = curpos + moveby;
+onEvent("click", ".move-feed", function() {
+  var curpos = parseInt(this.getAttribute("feedid"));
+  var newpos = curpos + parseInt(this.getAttribute("moveby"));
   if (newpos >= 0 && newpos < feedlist.length) {
-    newfeedlist = arrayMove(feedlist, curpos, newpos);
+    arrayMove(feedlist, curpos, newpos);
     graph();
   }
 });
@@ -682,15 +605,16 @@ function arrayMove(array, old_index, new_index) {
 //        Handle series select
 //********************************************************************************************
 
-$("#source-table").on("click", ".source-table-entry", function() {
+onEvent("click", "#source-table .source-table-entry", function() {
+  var name = this.textContent;
   for (var z in feedlist) {
-    if (feedlist[z].unit == unit && feedlist[z].name == $(this).html()) {
-      $(this).next().click();
+    if (feedlist[z].unit == unit && feedlist[z].name == name) {
+      if (this.nextElementSibling) this.nextElementSibling.click();
       return;
     }
   }
   feedlist.push({
-    name: $(this).html(),
+    name: name,
     unit: unit,
     color: assign_color(),
     fill: false,
@@ -708,8 +632,8 @@ $("#source-table").on("click", ".source-table-entry", function() {
 //        Handle delete feed
 //********************************************************************************************
 
-$("body").on("click", ".feed-delete", function() {
-  feedlist.splice($(this).attr("feedindex"), 1);
+onEvent("click", ".feed-delete", function() {
+  feedlist.splice(this.getAttribute("feedindex"), 1);
   graph();
 });
 
@@ -718,26 +642,15 @@ $("body").on("click", ".feed-delete", function() {
 //********************************************************************************************
 
 function build_source_list() {
-  var html = "<table style='width:100%';>";
-  html += "<colgroup>";
-  html += "<col span='1' style='width: 90%;'>";
-  html += "<col span='1' style='width: 10%;'>";
-  html += "</colgroup>";
-  for (z in series) {
-    var entryunits = series[z].units;
+  var html = "<table style='width:100%'>";
+  html += "<colgroup><col span='1' style='width: 90%;'><col span='1' style='width: 10%;'></colgroup>";
+  for (var z in series) {
     if (source_type(unit) == source_type(series[z].unit)) {
-      html +=
-        "<tr class='source-table-row'><td class='source-table-entry'>" +
-        series[z].name +
-        "</td>";
+      html += "<tr class='source-table-row'><td class='source-table-entry'>" + esc(series[z].name) + "</td>";
       var selected = false;
-      for (f in feedlist) {
+      for (var f in feedlist) {
         if (unit == feedlist[f].unit && series[z].name == feedlist[f].name) {
-          html +=
-            "<td class='feed-delete' feedindex=" +
-            f +
-            " style='background:" +
-            feedlist[f].color +
+          html += "<td class='feed-delete' feedindex=" + f + " style='background:" + esc(feedlist[f].color) +
             "'><i class='ico ico-trash3'></i></td>";
           selected = true;
         }
@@ -749,7 +662,7 @@ function build_source_list() {
     }
   }
   html += "</table>";
-  $("#source-table").html(html);
+  byId("source-table").innerHTML = html;
 }
 
 function source_type(unit) {
@@ -759,9 +672,9 @@ function source_type(unit) {
 
 function assign_color() {
   if (feedlist.length == 0) return colors[0];
-  for (i in colors) {
+  for (var i in colors) {
     var result = colors[i];
-    for (z in feedlist) {
+    for (var z in feedlist) {
       if (result == feedlist[z].color) {
         result = false;
         break;
@@ -771,7 +684,6 @@ function assign_color() {
   }
   return "#000000";
 }
-
 
 //********************************************************************************************
 //            query() - initiate asynchronous query for all graph data
@@ -799,62 +711,34 @@ function query() {
 
   // Build the query
 
-  var errorstr = "";
   var begin = periodTable[periodIndex].begin;
   var end = periodTable[periodIndex].end;
   if (custom_dates) {
     begin = beginDate.viewDate().format("x");
     end = endDate.viewDate().format("x");
-    $("#select-period").prop({ value: 0, selectedIndex: 0 });
+    byId("select-period").selectedIndex = 0;
   }
 
-  var request =
-    path +
-    "/query?format=json&header=yes&resolution=high&missing=null" +
-    "&begin=" +
-    begin +
-    "&end=" +
-    end +
-    "&select=[time.utc.unix";
+  var url = path + "/query?format=json&header=yes&resolution=high&missing=null" +
+    "&begin=" + begin + "&end=" + end + "&select=[time.utc.unix";
 
   for (var i = 0; i < feedlist.length; i++) {
-    request += "," + feedlist[i].name;
-    request += "." + feedlist[i].unit;
-    request += ".d" + feedlist[i].dp;
+    url += "," + feedlist[i].name + "." + feedlist[i].unit + ".d" + feedlist[i].dp;
     feedlist[i].dataindex = i + 1;
   }
 
-  request += "]&group=";
-  for (g in groups) {
+  url += "]&group=";
+  for (var g in groups) {
     if (group == groups[g].group) {
-      request += groups[g].query;
+      url += groups[g].query;
     }
   }
 
   // Send the query
 
-  $.ajax({
-    url: request,
-    async: true,
-    dataType: "text",
-    error: function(xhr) {
-      $("#error")
-        .html(
-          "<h4>" +
-          xhr.status +
-          " " +
-          xhr.statusText +
-          "</h4><p>" +
-          xhr.responseText +
-          "<br>" +
-          request.substring(0, 400) +
-          "</p>"
-        )
-        .show();
-    },
-    success: function(data_in) {
+  request("GET", url, null,
+    function(data_in) {
       // Process query response
-
       var valid = true;
       try {
         response = JSON.parse(data_in);
@@ -862,52 +746,47 @@ function query() {
       } catch (e) {
         valid = false;
       }
-      if (!valid)
-        errorstr +=
-        "<div class='alert alert-danger'><b>Request error</b> " +
-        $("<span>").text(data_in).html() +            // the device's reply is text, not HTML
-        "</div>";
-
-      if (errorstr != "") {
-        $("#error").html(errorstr).show();
-      } else {
-        userDateChange = false;
-        beginDate.maxDate(new Date(response.range[1] * 1000));
-        beginDate.date(new Date(response.range[0] * 1000));
-        endDate.minDate(new Date(response.range[0] * 1000));
-        endDate.date(new Date(response.range[1] * 1000));
-        userDateChange = true;
-        periodDuration = endDate
-          .viewDate()
-          .diff(beginDate.viewDate(), "seconds");
-        if (response.data.length < 2) {
-          interval = periodDuration;
-        } else {
-          interval = response.data[1][0] - response.data[0][0];
-        }
-        var autolabel = "auto";
-        if (group == "auto") {
-          if (interval % 3600 == 0) autolabel += " (" + interval / 3600 + "h)";
-          else if (interval % 60 == 0) autolabel += " (" + interval / 60 + "m)";
-          else autolabel += " (" + interval + "s)";
-        }
-        $("#select-group").children(":first").html(autolabel);
-        $("#error").hide();
-        if (response.limit) {                            // cut short by the row limit or the time limit (B87)
-          $("#error").text("Data shown up to " + new Date(response.limit * 1000).toLocaleString() +
-            (response.timeout ? ": the device's time limit for one query was reached." : ": the row limit was reached.") +
-            " Zoom in, or choose a coarser group.").show();
-        }
-
-        graph();
+      if (!valid) {
+        byId("error").innerHTML = "<div class='alert alert-danger'><b>Request error</b> " + esc(data_in) + "</div>";
+        setShown(byId("error"), true);
+        return;
       }
-
+      userDateChange = false;
+      beginDate.maxDate(new Date(response.range[1] * 1000));
+      beginDate.date(new Date(response.range[0] * 1000));
+      endDate.minDate(new Date(response.range[0] * 1000));
+      endDate.date(new Date(response.range[1] * 1000));
+      userDateChange = true;
+      periodDuration = endDate.viewDate().diff(beginDate.viewDate(), "seconds");
+      if (response.data.length < 2) {
+        interval = periodDuration;
+      } else {
+        interval = response.data[1][0] - response.data[0][0];
+      }
+      var autolabel = "auto";
+      if (group == "auto") {
+        if (interval % 3600 == 0) autolabel += " (" + interval / 3600 + "h)";
+        else if (interval % 60 == 0) autolabel += " (" + interval / 60 + "m)";
+        else autolabel += " (" + interval + "s)";
+      }
+      byId("select-group").options[0].textContent = autolabel;
+      setShown(byId("error"), false);
+      if (response.limit) {                            // cut short by the row limit or the time limit (B87)
+        showError("Data shown up to " + new Date(response.limit * 1000).toLocaleString() +
+          (response.timeout ? ": the device's time limit for one query was reached." : ": the row limit was reached.") +
+          " Zoom in, or choose a coarser group.");
+      }
+      graph();
+    },
+    function(xhr) {
+      byId("error").innerHTML = "<h4>" + esc(xhr.status + " " + xhr.statusText) + "</h4><p>" +
+        esc(xhr.responseText) + "<br>" + esc(url.substring(0, 400)) + "</p>";
+      setShown(byId("error"), true);
+    },
+    function() {
       // This is the second part of the asynchronous load logic.
       // Change state to indicate load no longer in progress.
       // If a reload was requested during this load, start a new load.
-    },
-
-    complete: function() {
       clearTimeout(refreshTimer);
       loading = false;
       if (reload) {
@@ -916,42 +795,27 @@ function query() {
       } else {
         set_refresh();
       }
-    },
-  });
+    });
 }
 
 //********************************************************************************************
-//            graph() - Create a graph
+//            graph() - Create a graph (uPlot)
+//
+//            One y axis per unit, alternating left and right. Each feed is a line or bars, filled
+//            or not; stacked feeds sit on the stacked feed after them in the list (the last one
+//            is at the bottom), on the same axis. Gaps (no data) are bridged by lines, as before.
+//            Dragging across the chart graphs that range.
 //********************************************************************************************
 
-function graph() {
-  // Boilerplate options
+function hexAlpha(color, alpha) {                   // "#rrggbb" + alpha (0..1) -> "#rrggbbaa"
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return color + ("0" + Math.round(alpha * 255).toString(16)).slice(-2);
+}
 
-  var options = {
-    lines: { fill: false },
-    grid: { hoverable: true, clickable: true, color: themeColor("--bs-secondary-color"),
-            borderColor: themeColor("--bs-border-color") },
-    legend: { show: showLegend, position: "nw", sorted: "reverse", backgroundColor: themeColor("--bs-body-bg") },
-    toggle: { scale: "visible" },
-    touch: { pan: "x", scale: "x" },
-    xaxis: {
-      mode: "time",
-      timezone: "browser",
-      min: beginDate.viewDate().format("x"),
-      max: endDate.viewDate().format("x"),
-    },
-    yaxis: { alignTicksWithAxis: 1, tickFormatter: tick_format },
-    yaxes: [],
-  };
-  if (!embed) {
-    options.selection = { mode: "x" };
-  }
-
-  // Create yaxes table for active units from feedlist
-
+function build_yaxes() {
   yaxes = [];
   var position = "left";
-  for (z in feedlist) {
+  for (var z in feedlist) {
     var y;
     for (y = 0; y < yaxes.length; ++y) {
       if (feedlist[z].unit == yaxes[y].unit) {
@@ -960,13 +824,11 @@ function graph() {
       }
     }
     if (y == yaxes.length) {
-      for (u in units) {
+      for (var u in units) {
         if (feedlist[z].unit == units[u].unit) {
           yaxes.push(units[u]);
           yaxes[yaxes.length - 1].unitIndex = u;
           yaxes[yaxes.length - 1].position = position;
-          yaxes[yaxes.length - 1].min = units[u].min;
-          yaxes[yaxes.length - 1].max = units[u].max;
           position = position == "left" ? "right" : "left";
           feedlist[z].yaxis = yaxes.length;
           break;
@@ -974,251 +836,269 @@ function graph() {
       }
     }
   }
+}
 
-  // Add yaxes table information to plot options
+function graph() {
+  build_yaxes();
 
-  for (y in yaxes) {
-    options.yaxes.push({
-      position: yaxes[y].position,
-      min: yaxes[y].min != "" ? yaxes[y].min : null,
-      max: yaxes[y].max != "" ? yaxes[y].max : null,
+  var rows = response.data || [];
+  var times = rows.map(function(r) { return r[0]; });
+  var plotted = feedlist.filter(function(f) { return f.dataindex != undefined; });
+
+  // Each feed's values (scaled, accrued), then the stacked sums, bottom (last feed) first.
+
+  var raw = plotted.map(function(f) {
+    var scale = f.scale, accrual = 0;
+    return rows.map(function(r) {
+      var v = r[f.dataindex];
+      var out = v == null ? null : v * scale + accrual;
+      if (f.accrue && v != null) accrual += v * scale;
+      return out;
     });
-  }
-
-  // Define plotdata and add feedlist items
-
-  var plotdata = [];
-
-  for (var z = feedlist.length - 1; z >= 0; z--) {
-    if (feedlist[z].dataindex != undefined) {
-      var dataindex = feedlist[z].dataindex;
-      var data = [];
-      var scale = feedlist[z].scale;
-      var accrual = 0;
-      for (var i = 0; i < response.data.length; i++) {
-        if (response.data[i][dataindex] != null) {
-          data.push([
-            response.data[i][0] * 1000,
-            response.data[i][dataindex] * scale + accrual,
-          ]);
-        }
-        if (feedlist[z].accrue) {
-          accrual += response.data[i][dataindex] * scale;
-        }
-      }
-
-      var plot = {
-        label: (showUnit ? feedlist[z].unit + ": " : "") + feedlist[z].name,
-        data: data,
-        yaxis: feedlist[z].yaxis,
-        color: feedlist[z].color,
-        stack: feedlist[z].stack != undefined && feedlist[z].stack,
-      };
-
-      if (feedlist[z].plottype == "Line") {
-        plot.lines = { show: true, fill: feedlist[z].fill };
-      }
-      if (feedlist[z].plottype == "Bar") {
-        plot.bars = { show: true, barWidth: interval * 750 };
-        if (feedlist[z].fill) {
-          plot.bars.fillColor = { colors: [{ opacity: 1 }, { opacity: 1 }] };
-        }
-      }
-      plotdata.push(plot);
+  });
+  var drawn = raw.map(function(values) { return values.slice(); });
+  var below = plotted.map(function() { return -1; });          // the stacked feed each one sits on
+  var stackTop = {};                                            // per axis: the last stacked feed
+  for (var i = plotted.length - 1; i >= 0; i--) {
+    if (!plotted[i].stack) continue;
+    var axis = plotted[i].yaxis;
+    if (stackTop[axis] !== undefined) {
+      var base = drawn[stackTop[axis]];
+      below[i] = stackTop[axis];
+      drawn[i] = raw[i].map(function(v, k) { return v == null ? null : v + (base[k] == null ? 0 : base[k]); });
     }
+    stackTop[axis] = i;
   }
 
-  // The BIG moment....  plot it!
+  // Data range per axis, for the y axes table.
 
-  var plotobj = $.plot($("#placeholder"), plotdata, options);
+  yaxes.forEach(function(y) { y.datamin = null; y.datamax = null; });
+  plotted.forEach(function(f, n) {
+    var y = yaxes[f.yaxis - 1];
+    drawn[n].forEach(function(v) {
+      if (v == null) return;
+      if (y.datamin == null || v < y.datamin) y.datamin = v;
+      if (y.datamax == null || v > y.datamax) y.datamax = v;
+    });
+  });
+
+  var text = themeColor("--bs-secondary-color") || "#666";
+  var grid = themeColor("--bs-border-color") || "#ddd";
+
+  var scales = {
+    x: {
+      time: true,
+      range: function() {
+        return [beginDate.viewDate().d.getTime() / 1000, endDate.viewDate().d.getTime() / 1000];
+      },
+    },
+  };
+  var axes = [{ stroke: text, grid: { stroke: grid, width: 1 }, ticks: { stroke: grid, width: 1 } }];
+  yaxes.forEach(function(y, n) {
+    var min = y.min, max = y.max;
+    scales[y.unit] = {
+      range: function(u, dmin, dmax) {
+        var r = dmin == null ? [0, 1] : uPlot.rangeNum(dmin, dmax, 0.1, true);
+        if (min !== "" && min != null) r[0] = Number(min);
+        if (max !== "" && max != null) r[1] = Number(max);
+        return r;
+      },
+    };
+    axes.push({
+      scale: y.unit,
+      side: y.position == "left" ? 3 : 1,
+      stroke: text,
+      size: 70,
+      grid: { show: n == 0, stroke: grid, width: 1 },
+      ticks: { stroke: grid, width: 1 },
+      values: function(u, vals) { return vals.map(function(v) { return unitFormat(v, y.unit); }); },
+    });
+  });
+
+  var uSeries = [{ value: function(u, t) { return t == null ? "" : tooltipTime(new Date(t * 1000)); } }];
+  var bands = [];
+  plotted.forEach(function(f, n) {
+    var bar = f.plottype == "Bar";
+    var s = {
+      label: (showUnit ? f.unit + ": " : "") + f.name,
+      scale: f.unit,
+      stroke: f.color,
+      width: bar ? 1 : 2,
+      spanGaps: !bar,
+      points: { show: false },
+      value: function(u, v, si, idx) {
+        if (idx == null || raw[n][idx] == null) return "–";
+        var shown = unitFormat(raw[n][idx], f.unit);
+        return below[n] >= 0 ? shown + " (stack " + unitFormat(v, f.unit) + ")" : shown;
+      },
+    };
+    if (bar) {
+      s.paths = uPlot.paths.bars({ size: [0.75, Infinity], align: 1 });
+      if (f.fill) s.fill = f.color;
+      if (below[n] >= 0) bands.push({ series: [n + 1, below[n] + 1], fill: function() { return null; } });  // from the stack below
+    } else if (f.fill && below[n] < 0) {
+      s.fill = hexAlpha(f.color, 0.4);                         // down to zero
+    }
+    uSeries.push(s);
+  });
+
+  var opts = Object.assign(chartSize(), {
+    scales: scales,
+    axes: axes,
+    series: uSeries,
+    bands: bands,
+    legend: { show: showLegend, live: true },
+    cursor: {
+      drag: { x: !embed, y: false, setScale: false },
+      points: { show: false },
+    },
+    hooks: {
+      // A stacked, filled line: fill down to the stack below it (bands can't use bars as their lower edge).
+      drawSeries: [function(u, si) {
+        var n = si - 1;
+        var f = plotted[n];
+        if (!f || f.plottype == "Bar" || !f.fill || below[n] < 0 || !u.series[si].show) return;
+        var top = drawn[n], base = drawn[below[n]], pts = [];
+        for (var k = 0; k < times.length; k++) {
+          if (top[k] == null) continue;
+          pts.push([u.valToPos(times[k], "x", true), u.valToPos(top[k], f.unit, true),
+                    u.valToPos(base[k] == null ? 0 : base[k], f.unit, true)]);
+        }
+        if (pts.length < 2) return;
+        var ctx = u.ctx;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height);
+        ctx.clip();
+        ctx.beginPath();
+        pts.forEach(function(p, k) { if (k == 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+        for (var k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k][0], pts[k][2]);
+        ctx.closePath();
+        ctx.fillStyle = hexAlpha(f.color, 0.4);
+        ctx.fill();
+        ctx.restore();
+      }],
+      // The plotted range of each axis, for the y axes table (known once the chart has its scales).
+      ready: [function(u) {
+        yaxes.forEach(function(y) {
+          var sc = u.scales[y.unit];
+          y.tickmin = sc && sc.min != null ? sc.min : 0;
+          y.tickmax = sc && sc.max != null ? sc.max : 0;
+        });
+        build_yaxes_table();
+      }],
+      setSelect: [function(u) {
+        if (embed || u.select.width < 3) return;
+        var from = u.posToVal(u.select.left, "x");
+        var to = u.posToVal(u.select.left + u.select.width, "x");
+        u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+        rangeSelected(from, to);
+      }],
+    },
+  });
+
+  var data = [times].concat(drawn);
+  if (chart) chart.destroy();
+  byId("placeholder").innerHTML = "";
+  chart = new uPlot(opts, data, byId("placeholder"));
 
   // Rebuild the tables to update context
 
-  $(".data-tables").hide();
+  setShown(".data-tables", false);
   if (feedlist.length != 0) {
     build_options_table();
     build_stats_table();
     build_yaxes_table();
     build_CSV();
-    $(".data-tables").show();
+    setShown(".data-tables", true);
   }
   build_source_list();
 }
 
-//********************************************************************************************
-//        tick_format - callback to format the yaxis ticks
-//********************************************************************************************
-
-function tick_format(val, axis) {
-  if (axis.ticks.length == 0) {
-    yaxes[axis.n - 1].tickmin = val;
-    yaxes[axis.n - 1].datamin = axis.datamin;
-    yaxes[axis.n - 1].datamax = axis.datamax;
-  }
-  yaxes[axis.n - 1].tickmax = val;
-  return unitFormat(val, yaxes[axis.n - 1].unit);
+// Time in the legend, e.g. "5:17 PM Wed, Nov 25", in the browser's language
+function tooltipTime(d) {
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " " +
+    d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
 //********************************************************************************************
 //        Create the tables for options, statistics, yaxes and CSV
 //********************************************************************************************
 
-function build_options_table() {
-  $("#sourceOptionsBody").empty();
-  for (var z in feedlist) {
-    if (feedlist[z].dataindex != undefined) {
-      var line = "<tr><td>";
-      if (z > 0) {
-        line +=
-          "<a class='move-feed' title='Move up' feedid=" +
-          z +
-          " moveby=-1 ><i class='ico ico-arrow-up'></i></a>";
-      }
-      if (z < feedlist.length - 1) {
-        line +=
-          "<a class='move-feed' title='Move down' feedid=" +
-          z +
-          " moveby=1 ><i class='ico ico-arrow-down'></i></a>";
-      }
-      line += "</td>";
-      line +=
-        "<td><span class='feed-delete' feedindex=" +
-        z +
-        "><i class='ico ico-trash3'></i></td>";
-      line +=
-        "<td style='text-align:left'>" +
-        feedlist[z].unit +
-        ":" +
-        feedlist[z].name +
-        "</td>";
-      line +=
-        "<td><input class='table-input linecolor' feedindex=" +
-        z +
-        " style='width:50px;' type='color' value='" +
-        feedlist[z].color +
-        "'></td>";
-
-      line +=
-        "<td><button type='button' class='table-input line-bar' feedindex=" +
-        z +
-        ">" +
-        feedlist[z].plottype +
-        "</button></td>";
-      line +=
-        "<td style='text-align:center'><input class='fill' type='checkbox' feedindex=" +
-        z +
-        (feedlist[z].fill ? " checked" : "") +
-        " /></td>";
-      line +=
-        "<td style='text-align:center'><input class='stack' type='checkbox' feedindex=" +
-        z +
-        (feedlist[z].stack ? " checked" : "") +
-        "></td>";
-      if (feedlist[z].unit == "Wh" || feedlist[z].unit == "VARh") {
-        line +=
-          "<td style='text-align:center'><input class='accrue' type='checkbox' feedindex=" +
-          z +
-          (feedlist[z].accrue ? " checked" : "") +
-          "></td>";
-      } else {
-        line += "<td></td>";
-      }
-      line +=
-        "<td><input class='table-input decimalpoints' feedindex=" +
-        z +
-        " type='number' min='0' max='3' step='1' value=" +
-        feedlist[z].dp +
-        " style='width:50px;' /></td>";
-      line +=
-        "<td><input class='table-input scale' feedindex=" +
-        z +
-        " type='text' style='width:50px;' value=" +
-        feedlist[z].scale +
-        " /></td>";
-      line += "</tr>";
-      $("#sourceOptionsBody").append(line);
-    }
+function moveCells(z) {
+  var cell = "<td>";
+  if (z > 0) {
+    cell += "<a class='move-feed' title='Move up' feedid=" + z + " moveby=-1 ><i class='ico ico-arrow-up'></i></a>";
   }
+  if (z < feedlist.length - 1) {
+    cell += "<a class='move-feed' title='Move down' feedid=" + z + " moveby=1 ><i class='ico ico-arrow-down'></i></a>";
+  }
+  cell += "</td>";
+  cell += "<td><span class='feed-delete' feedindex=" + z + "><i class='ico ico-trash3'></i></span></td>";
+  cell += "<td style='text-align:left'>" + esc(feedlist[z].unit + ":" + feedlist[z].name) + "</td>";
+  return cell;
+}
+
+function build_options_table() {
+  var html = "";
+  for (var z in feedlist) {
+    if (feedlist[z].dataindex == undefined) continue;
+    var f = feedlist[z];
+    var line = "<tr>" + moveCells(Number(z));
+    line += "<td><input class='table-input linecolor' feedindex=" + z + " style='width:50px;' type='color' value='" +
+      esc(f.color) + "'></td>";
+    line += "<td><button type='button' class='table-input line-bar' feedindex=" + z + ">" + esc(f.plottype) + "</button></td>";
+    line += "<td style='text-align:center'><input class='fill' type='checkbox' feedindex=" + z + (f.fill ? " checked" : "") + " /></td>";
+    line += "<td style='text-align:center'><input class='stack' type='checkbox' feedindex=" + z + (f.stack ? " checked" : "") + "></td>";
+    if (f.unit == "Wh" || f.unit == "VARh") {
+      line += "<td style='text-align:center'><input class='accrue' type='checkbox' feedindex=" + z + (f.accrue ? " checked" : "") + "></td>";
+    } else {
+      line += "<td></td>";
+    }
+    line += "<td><input class='table-input decimalpoints' feedindex=" + z +
+      " type='number' min='0' max='3' step='1' value='" + esc(f.dp) + "' style='width:50px;' /></td>";
+    line += "<td><input class='table-input scale' feedindex=" + z + " type='text' style='width:50px;' value='" +
+      esc(f.scale) + "' /></td>";
+    line += "</tr>";
+    html += line;
+  }
+  byId("sourceOptionsBody").innerHTML = html;
 }
 
 function build_stats_table() {
-  $("#sourceStatsBody").empty();
+  var html = "";
   for (var z in feedlist) {
-    if (feedlist[z].dataindex != undefined) {
-      var dp = feedlist[z].dp;
-      var stats = compute_stats(feedlist[z].dataindex, feedlist[z].scale);
-      var line = "<tr><td>";
-      if (z > 0) {
-        line +=
-          "<a class='move-feed' title='Move up' feedid=" +
-          z +
-          " moveby=-1 ><i class='ico ico-arrow-up'></i></a>";
-      }
-      if (z < feedlist.length - 1) {
-        line +=
-          "<a class='move-feed' title='Move down' feedid=" +
-          z +
-          " moveby=1 ><i class='ico ico-arrow-down'></i></a>";
-      }
-      line +=
-        "<td><span class='feed-delete' feedindex=" +
-        z +
-        "><i class='ico ico-trash3'></i></td>";
-      line +=
-        "<td style='text-align:left'>" +
-        feedlist[z].unit +
-        ":" +
-        feedlist[z].name +
-        "</td>";
-      var quality = Math.round(100 * (1 - stats.npointsnull / stats.npoints));
-      line +=
-        "<td>" +
-        quality +
-        "% (" +
-        (stats.npoints - stats.npointsnull) +
-        "/" +
-        stats.npoints +
-        ")</td>";
-      line += "<td>" + stats.minval.toFixed(dp) + "</td>";
-      line += "<td>" + stats.maxval.toFixed(dp) + "</td>";
-      line += "<td>" + stats.diff.toFixed(dp) + "</td>";
-      line +=
-        "<td>" + unitFormat(stats.mean.toFixed(dp), feedlist[z].unit) + "</td>";
+    if (feedlist[z].dataindex == undefined) continue;
+    var dp = feedlist[z].dp;
+    var stats = compute_stats(feedlist[z].dataindex, feedlist[z].scale);
+    var line = "<tr>" + moveCells(Number(z));
+    var quality = Math.round(100 * (1 - stats.npointsnull / stats.npoints));
+    line += "<td>" + quality + "% (" + (stats.npoints - stats.npointsnull) + "/" + stats.npoints + ")</td>";
+    line += "<td>" + stats.minval.toFixed(dp) + "</td>";
+    line += "<td>" + stats.maxval.toFixed(dp) + "</td>";
+    line += "<td>" + stats.diff.toFixed(dp) + "</td>";
+    line += "<td>" + unitFormat(stats.mean.toFixed(dp), feedlist[z].unit) + "</td>";
 
-      var unit = feedlist[z].unit;
-      line += "<td>";
-      for (u in units) {
-        if (units[u].unit == unit) {
-          if (units[u].stat == "S") {
-            line += unitFormat(stats.sum, units[u].label);
-          } else if (units[u].stat == "I") {
-            line +=
-              unitFormat(
-                ((1 - stats.npointsnull / stats.npoints) *
-                  stats.mean *
-                  periodDuration) /
-                3600,
-                units[u].unit
-              ) + "h";
-          }
-          break;
+    var unit = feedlist[z].unit;
+    line += "<td>";
+    for (var u in units) {
+      if (units[u].unit == unit) {
+        if (units[u].stat == "S") {
+          line += unitFormat(stats.sum, units[u].label);
+        } else if (units[u].stat == "I") {
+          line += unitFormat(((1 - stats.npointsnull / stats.npoints) * stats.mean * periodDuration) / 3600, units[u].unit) + "h";
         }
+        break;
       }
-      line += "</td>";
-      line += "</tr>";
-      $("#sourceStatsBody").append(line);
     }
+    line += "</td></tr>";
+    html += line;
   }
+  byId("sourceStatsBody").innerHTML = html;
 }
 
 function compute_stats(dataindex, scale) {
-  var stats = {
-    minval: 0,
-    maxval: 0,
-    sum: 0,
-    npointsnull: 0,
-    npoints: 0,
-  };
+  var stats = { minval: 0, maxval: 0, sum: 0, npointsnull: 0, npoints: 0 };
   var i = 0;
   var val = null;
   for (var z in response.data) {
@@ -1241,69 +1121,49 @@ function compute_stats(dataindex, scale) {
 }
 
 function build_yaxes_table() {
-  $("#yaxesBody").empty();
-  for (y in yaxes) {
+  var html = "";
+  for (var y in yaxes) {
     var yaxis = yaxes[y];
     var unit = yaxis.unit;
-    var min =
-      units[unitindex(unit)].min == undefined ? "" : units[unitindex(unit)].min;
-    var max =
-      units[unitindex(unit)].max == undefined ? "" : units[unitindex(unit)].max;
+    var ui = unitindex(unit);
+    var min = units[ui].min == undefined ? "" : units[ui].min;
+    var max = units[ui].max == undefined ? "" : units[ui].max;
+    var dp = units[ui].dp;
     var line = "<tr>";
     line += "<td style='text-align:left'>" + yaxis.unit + "</td>";
-    line +=
-      "<td>" +
-      unitFormat(yaxis.tickmin, unit) +
-      " to " +
-      unitFormat(yaxis.tickmax, unit) +
-      "</td>";
-    var dp = units[unitindex(unit)].dp;
-    line +=
-      "<td>" +
-      Number(yaxis.datamin).toFixed(dp) +
-      " to " +
-      Number(yaxis.datamax).toFixed(dp) +
-      "</td>";
-    line +=
-      "<td><input class='table-input ymin text-center' unitindex=" +
-      unitindex(unit) +
-      " style='width:50px' placeholder='auto' value=" +
-      min +
-      "></td>";
+    line += "<td>" + unitFormat(yaxis.tickmin, unit) + " to " + unitFormat(yaxis.tickmax, unit) + "</td>";
+    line += "<td>" + Number(yaxis.datamin).toFixed(dp) + " to " + Number(yaxis.datamax).toFixed(dp) + "</td>";
+    line += "<td><input class='table-input ymin text-center' unitindex=" + ui +
+      " style='width:50px' placeholder='auto' value='" + esc(min) + "'></td>";
     line += "<td></td>";
-    line +=
-      "<td><input class='table-input ymax text-center' unitindex=" +
-      unitindex(unit) +
-      " style='width:50px' placeholder='auto' value=" +
-      max +
-      "></td>";
+    line += "<td><input class='table-input ymax text-center' unitindex=" + ui +
+      " style='width:50px' placeholder='auto' value='" + esc(max) + "'></td>";
     line += "</tr>";
-    $("#yaxesBody").append(line);
+    html += line;
   }
+  byId("yaxesBody").innerHTML = html;
 }
 
 function build_CSV() {
-  $("#csv").empty();
-  var timeformat = $("#csvtimeformat").val();
-  var nullvalues = $("#csvnullvalues").val();
-  var start_time = response.data[0][0];
-  var accrual = [];
-  for (f in feedlist) {
-    accrual.push(0);
-  }
-  for (var i = 0; i < response.data.length; i++) {
+  var out = [];
+  var rows = response.data || [];
+  if (rows.length == 0) { byId("csv").value = ""; return; }
+  var timeformat = byId("csvtimeformat").value;
+  var nullvalues = byId("csvnullvalues").value;
+  var start_time = rows[0][0];
+  var accrual = feedlist.map(function() { return 0; });
+  for (var i = 0; i < rows.length; i++) {
     var line = "";
     if (timeformat == "unix") {
-      line += response.data[i][0];
+      line += rows[i][0];
     } else if (timeformat == "seconds") {
-      line += response.data[i][0] - start_time;
+      line += rows[i][0] - start_time;
     } else if (timeformat == "datestr") {
-      line += formatDate(new Date(response.data[i][0] * 1000), "YYYY-MM-DD HH:mm:ss");
+      line += formatDate(new Date(rows[i][0] * 1000), "YYYY-MM-DD HH:mm:ss");
     }
 
     for (var f in feedlist) {
-      var dataindex = feedlist[f].dataindex;
-      var value = response.data[i][dataindex];
+      var value = rows[i][feedlist[f].dataindex];
       if (value == null) {
         if (nullvalues == "show") {
           line += ", null";
@@ -1321,60 +1181,22 @@ function build_CSV() {
         }
       }
     }
-    if (line.length > 0) $("#csv").append(line + "\n");
+    if (line.length > 0) out.push(line + "\n");
   }
-}
-
-//********************************************************************************************
-//        unitFormat - returns display string of val+units w/appropriate scaling and dp
-//                     example 2406 Watts becomes "2.41 kW"
-//********************************************************************************************
-
-function unitFormat(val, unit) {
-  if (unit == "Volts") {
-    return Number(val).toFixed(1) + " V";
-  }
-  if (unit == "PF") {
-    if (val > 0.999) {
-      return Number(val).toFixed(2) + " PF";
-    }
-    return (Number(val).toFixed(3) + " PF").substring(1);
-  }
-  if (unit == "Hz") {
-    return Number(val).toFixed(2) + " Hz";
-  }
-  for (u in units) {
-    if (units[u].unit == unit) {
-      if (val == 0) {
-        return "0 " + units[u].label;
-      }
-      for (f in formats) {
-        if (Math.abs(val) < formats[f].max) {
-          return (
-            (Number(val) / formats[f].div).toFixed(formats[f].dp) +
-            " " +
-            formats[f].prefix +
-            units[u].label
-          );
-        }
-      }
-    }
-  }
-  return Number(val).toFixed(0) + " " + unit;
+  byId("csv").value = out.join("");
 }
 
 //********************************************************************************************
 //            GRAPH SAVE
 //********************************************************************************************
 
-$("#graph-select").change(function() {
+byId("graph-select").addEventListener("change", function() {
   loading = true;
-  var name = $(this).val();
-  $("graph-reset").click();
+  var name = this.value;
 
-  $("#graph-name").val(name);
-  $("#graph-save").show();
-  $("#graph-delete").show();
+  byId("graph-name").value = name;
+  setShown(byId("graph-save"), true);
+  setShown(byId("graph-delete"), true);
   var index;
   for (index = 0; index < savedgraphs.length; index++) {
     if (name == savedgraphs[index].name) break;
@@ -1384,53 +1206,48 @@ $("#graph-select").change(function() {
   }
 
   if (savedgraphs[index].legacy) {
-    $("#graph-name").val(savedgraphs[index].legacy.name);
+    byId("graph-name").value = savedgraphs[index].legacy.name;
     applyContext(legacyContext(savedgraphs[index].legacy));
-    $("#error").text("Converted from the original Graph page. Save keeps it as a Graph+ graph; " +
-                     "Delete removes the original.").show();
+    showError("Converted from the original Graph page. Save keeps it as a Graph+ graph; " +
+              "Delete removes the original.");
     return;
   }
 
-  $.ajax({
-    url: path + "/graphs/" + savedgraphs[index].id,
-    async: true,
-    dataType: "json",
-    success: function(result) { applyContext(result); },
-  });
+  requestJSON("GET", path + "/graphs/" + savedgraphs[index].id, null, function(result) { applyContext(result); });
 });
 
 function applyContext(context) {
-      period = context.period;
-      build_period_selector();
+  period = context.period;
+  build_period_selector();
 
-      group = context.group;
-      build_group_options();
+  group = context.group;
+  build_group_options();
 
-      unit = context.unit;
-      build_units_selector();
+  unit = context.unit;
+  build_units_selector();
 
-      userDateChange = false;
-      beginDate.date(new Date(context.beginDate));
-      endDate.date(new Date(context.endDate));
-      userDateChange = true;
+  userDateChange = false;
+  beginDate.date(new Date(context.beginDate));
+  endDate.date(new Date(context.endDate));
+  userDateChange = true;
 
-      feedlist = context.feedlist;
-      refresh = false;
-      if (context.refresh !== undefined) {
-        refresh = context.refresh;
-      }
+  feedlist = context.feedlist;
+  refresh = false;
+  if (context.refresh !== undefined) {
+    refresh = context.refresh;
+  }
 
-      for (y in context.yaxes) {
-        var u = unitindex(context.yaxes[y].unit);
-        units[u].min = context.yaxes[y].min;
-        units[u].max = context.yaxes[y].max;
-      }
-      loading = false;
-      query();
+  for (var y in context.yaxes) {
+    var u = unitindex(context.yaxes[y].unit);
+    units[u].min = context.yaxes[y].min;
+    units[u].max = context.yaxes[y].max;
+  }
+  loading = false;
+  query();
 }
 
-$("#graph-save").click(function() {
-  var name = $("#graph-name").val();
+byId("graph-save").addEventListener("click", function() {
+  var name = byId("graph-name").value;
 
   if (name == undefined || name == "") {
     alert("Please enter a name for the graph.");
@@ -1451,87 +1268,77 @@ $("#graph-save").click(function() {
     context.refresh = true;
   }
 
-
-  for (z in context.feedlist) {
+  for (var z in context.feedlist) {
     delete context.feedlist[z].stats;
   }
-  for (u in units) {
+  for (var u in units) {
     if (units[u].min != "" || units[u].max != "") {
-      context.yaxes.push({
-        unit: units[u].unit,
-        min: units[u].min,
-        max: units[u].max,
-      });
+      context.yaxes.push({ unit: units[u].unit, min: units[u].min, max: units[u].max });
     }
   }
-  $.ajax({
-    method: "POST",
-    url: path + "/graph/create",
-    data: "data=" + JSON.stringify(context),
-    async: true,
-    //contentType: "text/plain",
-    success: function(result) {
-      if (!result.success) alert("ERROR: " + result.message);
-      $("#graph-delete").show();
-    },
+  // The body as before: "data=" and the JSON, not URL-encoded (what the device has always received).
+  requestJSON("POST", path + "/graph/create", "data=" + JSON.stringify(context), function(result) {
+    if (!result.success) alert("ERROR: " + result.message);
+    setShown(byId("graph-delete"), true);
   });
   graph_load_savedgraphs();
-  $("#graph-select").val(name);
+  byId("graph-select").value = name;
 });
 
-$("#graph-name").keyup(function() {
-  var name = $(this).val();
-  $("#graph-delete").hide();
+byId("graph-name").addEventListener("keyup", function() {
+  var name = this.value;
+  setShown(byId("graph-delete"), false);
   if (name == "") {
-    $("#graph-save").hide();
+    setShown(byId("graph-save"), false);
     return;
   }
-  for (z in savedgraphs) {
+  for (var z in savedgraphs) {
     if (savedgraphs[z].name == name) {
-      $("#graph-delete").show();
+      setShown(byId("graph-delete"), true);
       break;
     }
   }
-  $("#graph-save").show();
+  setShown(byId("graph-save"), true);
 });
 
-$("#graph-delete").click(function() {
-  var name = $("#graph-name").val();
+byId("graph-delete").addEventListener("click", function() {
+  var name = byId("graph-name").value;
   for (var z in savedgraphs) {
     if (savedgraphs[z].name == name || (savedgraphs[z].legacy && savedgraphs[z].legacy.name == name)) {
       graph_delete(savedgraphs[z].id);
-      $("#graph-name").val("");
-      $("#graph-delete").hide();
+      byId("graph-name").value = "";
+      setShown(byId("graph-delete"), false);
     }
   }
 });
 
 function graph_load_savedgraphs(callback) {
-  $.ajax({
-    url: path + "/graph/getallplus",
-    async: true,
-    dataType: "json",
-    success: function(result) {
-      savedgraphs = result;
-      // Graphs saved with the original Graph page (retired): listed too, converted when opened (B83).
-      $.ajax({
-        url: path + "/graph/getall",
-        async: true,
-        dataType: "json",
-        success: function(old) {
-          for (var i in old) {
-            if (old[i] && old[i].name && old[i].id !== undefined) {
-              savedgraphs.push({ name: old[i].name + LEGACY_SUFFIX, id: old[i].id, legacy: old[i] });
-            }
+  requestJSON("GET", path + "/graph/getallplus", null, function(result) {
+    savedgraphs = result;
+    // Graphs saved with the original Graph page (retired): listed too, converted when opened (B83).
+    requestJSON("GET", path + "/graph/getall", null,
+      function(old) {
+        for (var i in old) {
+          if (old[i] && old[i].name && old[i].id !== undefined) {
+            savedgraphs.push({ name: old[i].name + LEGACY_SUFFIX, id: old[i].id, legacy: old[i] });
           }
-        },
-        complete: function() {
-          var select = $("#graph-select").empty().append($("<option selected>").text("Select graph:"));
-          for (var z in savedgraphs) select.append($("<option>").text(savedgraphs[z].name));
-          if (callback) callback();
-        },
+        }
+      },
+      null,
+      function() {
+        var select = byId("graph-select");
+        select.innerHTML = "";
+        var first = document.createElement("option");
+        first.textContent = "Select graph:";
+        first.selected = true;
+        select.appendChild(first);
+        for (var z in savedgraphs) {
+          var opt = document.createElement("option");
+          opt.textContent = savedgraphs[z].name;
+          select.appendChild(opt);
+        }
+        if (callback) callback();
       });
-    },
   });
 }
 
@@ -1557,20 +1364,11 @@ function legacyContext(g) {
 }
 
 function graph_delete(id) {
-  // Save
-  $.ajax({
-    method: "POST",
-    url: path + "/graph/delete",
-    data: "id=" + id,
-    async: true,
-    dataType: "json",
-    success: function(result) {
-      if (!result.success) alert("ERROR: " + result.message);
-    },
+  requestJSON("POST", path + "/graph/delete", "id=" + id, function(result) {
+    if (!result.success) alert("ERROR: " + result.message);
   });
   graph_load_savedgraphs();
 }
-
 
 //********************************************************************************************
 //            INITIALIZE - Onetime startup sequence
@@ -1579,17 +1377,22 @@ function graph_delete(id) {
 function initialize() {
   build_units_selector();
   query_series_list();
-  $("#graph-reset").click();
-  $(".initHide").show();
-  var validGraph = true;
+  if (queryParameters.has("embed")) {
+    embed = true;
+    setShown(".embed", false);
+    if (!queryParameters.has("graph")) {
+      alert("embed specified with no graph parameter.");
+    }
+  }
+  byId("graph-reset").click();
   if (queryParameters.has("graph")) {
-    graph_load_savedgraphs(() => {
+    graph_load_savedgraphs(function() {
       var graph = queryParameters.get("graph");
-      validGraph = false;
+      var validGraph = false;
       for (var z in savedgraphs) {
         if (graph == savedgraphs[z].name) {
-          $("#graph-select").val(graph);
-          $("#graph-select").change();
+          byId("graph-select").value = graph;
+          fire(byId("graph-select"), "change");
           validGraph = true;
           break;
         }
@@ -1597,30 +1400,16 @@ function initialize() {
       if (!validGraph) {
         alert("Graph " + queryParameters.get("graph") + " not found or invalid.");
       }
-    })
+    });
   } else {
     graph_load_savedgraphs();
-  }
-  if (queryParameters.has("embed")) {
-    embed = true;
-    $(".embed").hide();
-    $("#placeholder").off("plotselected");
-    if (!queryParameters.has("graph")) {
-      alert("embed specified with no graph parameter.");
-    }
   }
   graph_resize();
 }
 
-
 function query_series_list() {
-  $.ajax({
-    url: path + "/query?show=series",
-    async: true,
-    dataType: "json",
-    success: function(data_in) {
-      series = data_in.series;
-      build_source_list();
-    },
+  requestJSON("GET", path + "/query?show=series", null, function(data_in) {
+    series = data_in.series;
+    build_source_list();
   });
 }

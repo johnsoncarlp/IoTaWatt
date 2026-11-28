@@ -15,6 +15,8 @@ FILES = [                                   # (SD file, content type)
     ("iotanav.js",   "application/javascript"),     # shared menu bar
     ("bootstrap.min.css", "text/css"),              # built by scripts/webui-bootstrap
     ("bootstrap.min.js",  "application/javascript"),
+    ("uplot.min.css", "text/css"),                  # Graph+ charts (uPlot, MIT)
+    ("uplot.min.js",  "application/javascript"),
 ]
 
 project = env.subst("$PROJECT_DIR")
