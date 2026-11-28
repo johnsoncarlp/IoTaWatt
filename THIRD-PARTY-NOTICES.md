@@ -8,8 +8,7 @@ the versions the build uses (`Firmware/platformio.ini`).
 libraries at the versions `Firmware/platformio.ini` pins (PlatformIO downloads them). [README.md](README.md#building)
 says how to build it, so the firmware can be rebuilt and relinked with modified versions of any of these components.
 
-The file editor page also loads the Ace editor from a public CDN into your browser. It is not part of the
-firmware image.
+The web interface loads nothing from the internet: every file it uses is in the firmware.
 
 | Component | Used for | Licence |
 |---|---|---|
@@ -29,6 +28,7 @@ firmware image.
 | Bootstrap 5.3.9 (trimmed build) | web interface styles and menus | MIT |
 | Bootstrap Icons | web interface icons | MIT |
 | uPlot 1.6.32 | Graph+ charts | MIT |
+| Prism 1.30.0 | file editor colours | MIT |
 
 ## ESP8266 Arduino core 3.1.2
 
@@ -421,6 +421,32 @@ THE SOFTWARE.
 The MIT License (MIT)
 
 Copyright (c) 2022 Leon Sorokin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## Prism 1.30.0
+
+```
+MIT LICENSE
+
+Copyright (c) 2012 Lea Verou
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

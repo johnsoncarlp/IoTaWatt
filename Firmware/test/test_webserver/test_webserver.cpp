@@ -446,7 +446,7 @@ static std::string readRepoFile(const char* name){
 
 // Every embedded file decompresses to exactly the SD/ source it was built from.
 static void test_webui_embedded_matches_sources(void){
-  TEST_ASSERT_EQUAL_INT(10, WEBUI_COUNT);
+  TEST_ASSERT_EQUAL_INT(12, WEBUI_COUNT);
   for(int i = 0; i < WEBUI_COUNT; i++){
     const webuiFile& f = webuiFiles[i];
     std::string src = readRepoFile(f.name);
@@ -466,6 +466,8 @@ static void test_webui_find(void){
   TEST_ASSERT_EQUAL_STRING("application/javascript", webuiFind("/iotanav.js")->type);
   TEST_ASSERT_EQUAL_STRING("text/css", webuiFind("/uplot.min.css")->type);          // Graph+ charts
   TEST_ASSERT_EQUAL_STRING("application/javascript", webuiFind("/uplot.min.js")->type);
+  TEST_ASSERT_EQUAL_STRING("application/javascript", webuiFind("/prism.min.js")->type);  // file editor
+  TEST_ASSERT_EQUAL_STRING("application/javascript", webuiFind("/codearea.js")->type);
   const char* not_embedded[] = {"/config.txt", "/tables.txt", "/favicon.ico", "/", "", "/index.htm/", "/index.html",
                                 "/iotawatt/index.htm", "/index.htm.src", "/index", "/graph.htm", "/graph.js", nullptr};
   for(int i = 0; not_embedded[i]; i++) TEST_ASSERT_NULL_MESSAGE(webuiFind(not_embedded[i]), not_embedded[i]);

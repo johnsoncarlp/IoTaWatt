@@ -17,6 +17,8 @@ FILES = [                                   # (SD file, content type)
     ("bootstrap.min.js",  "application/javascript"),
     ("uplot.min.css", "text/css"),                  # Graph+ charts (uPlot, MIT)
     ("uplot.min.js",  "application/javascript"),
+    ("prism.min.js",  "application/javascript"),    # file editor colours (Prism, MIT)
+    ("codearea.js",   "application/javascript"),    # file editor
 ]
 
 project = env.subst("$PROJECT_DIR")

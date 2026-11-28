@@ -158,6 +158,38 @@
       #editbar-state { color: var(--bs-secondary-color); font-size: .85em; }
       #editbar-state.unsaved { color: var(--bs-warning-text-emphasis, #b58105); font-weight: 600; }
       #editor, #preview { flex: 1; position: relative; min-width: 0; }
+      /* codearea: a textarea over its Prism-coloured copy, line numbers beside */
+      .codearea { display: flex; overflow: hidden; background: var(--bs-body-bg);
+                  font: 13px/1.45 var(--bs-font-monospace); }
+      .ca-gutter { flex: none; overflow: hidden; padding: 6px 8px 6px 6px; text-align: right; user-select: none;
+                   color: var(--bs-secondary-color); background: var(--bs-tertiary-bg);
+                   border-right: var(--bs-border-width) solid var(--bs-border-color); }
+      .ca-gutter pre, .ca-colour { margin: 0; font: inherit; }
+      .ca-body { flex: 1; position: relative; overflow: hidden; min-width: 0; }
+      .ca-colour, .codearea textarea { position: absolute; top: 0; left: 0; padding: 6px 8px; white-space: pre;
+                   tab-size: 4; font: inherit; letter-spacing: normal; }
+      .ca-colour { pointer-events: none; color: var(--bs-body-color); min-width: 100%; }
+      .codearea textarea { width: 100%; height: 100%; border: 0; outline: 0; resize: none; overflow: auto;
+                   background: transparent; color: transparent; caret-color: var(--bs-body-color); }
+      .codearea textarea::selection { background: rgba(var(--bs-primary-rgb), .25); color: transparent; }
+      .codearea.ca-plain textarea { color: var(--bs-body-color); }
+      .codearea.ca-plain textarea::selection { color: var(--bs-body-color); }
+      .codearea.ca-plain .ca-colour { display: none; }
+      .codearea.ca-readonly .ca-body { background: var(--bs-tertiary-bg); }
+      .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #6a737d; font-style: italic; }
+      .token.property, .token.tag, .token.selector, .token.attr-name { color: #22863a; }
+      .token.string, .token.attr-value, .token.char { color: #032f62; }
+      .token.number, .token.boolean, .token.constant { color: #005cc5; }
+      .token.keyword, .token.atrule, .token.important { color: #d73a49; }
+      .token.function, .token.class-name { color: #6f42c1; }
+      .token.punctuation, .token.operator { color: var(--bs-secondary-color); }
+      [data-bs-theme=dark] .token.property, [data-bs-theme=dark] .token.tag, [data-bs-theme=dark] .token.selector,
+      [data-bs-theme=dark] .token.attr-name { color: #7ee787; }
+      [data-bs-theme=dark] .token.string, [data-bs-theme=dark] .token.attr-value, [data-bs-theme=dark] .token.char { color: #a5d6ff; }
+      [data-bs-theme=dark] .token.number, [data-bs-theme=dark] .token.boolean, [data-bs-theme=dark] .token.constant { color: #79c0ff; }
+      [data-bs-theme=dark] .token.keyword, [data-bs-theme=dark] .token.atrule, [data-bs-theme=dark] .token.important { color: #ff7b72; }
+      [data-bs-theme=dark] .token.function, [data-bs-theme=dark] .token.class-name { color: #d2a8ff; }
+      [data-bs-theme=dark] .token.comment, [data-bs-theme=dark] .token.prolog { color: #8b949e; }
       #preview { background-color: var(--bs-tertiary-bg); padding: 5px; overflow: auto; }
       #msgarea { margin: 1rem 0 0; font-size: .85rem; color: var(--bs-secondary-color); }
       @media (max-width: 767.98px) {
@@ -659,8 +691,26 @@
           if(lang === "c_cpp") type = "text/plain";
         }
   
+        // Prism's name for a file's language (null: plain text, no colours).
+        function prismMode(lang){
+          if(/(^|\/)config\.txt$/i.test(file || "")) return "json";     // the configuration is JSON
+          return { html: "markup", xml: "markup", php: "markup", javascript: "javascript", css: "css", scss: "css",
+                   json: "json", c_cpp: "clike" }[lang] || null;
+        }
+        // config.txt and .json files must stay JSON: the device reads config.txt when it starts.
+        function jsonProblem(name, text){
+          if(!/\.json$/i.test(name) && !/(^|\/)config\.txt$/i.test(name)) return null;
+          try { JSON.parse(text.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, "")); return null; }
+          catch(e){
+            var m = /position (\d+)/.exec(e.message), where = "";
+            if(m) where = " (line " + text.slice(0, Number(m[1])).split("\n").length + ")";
+            else if((m = /line (\d+)/.exec(e.message))) where = " (line " + m[1] + ")";
+            return e.message + where;
+          }
+        }
+
         var xmlHttp = null;
-        var editor = ace.edit(element);
+        var editor = createCodeArea(element);
   
         //post
         function httpPostProcessRequest(){
@@ -681,7 +731,7 @@
         function httpGetProcessRequest(){
           if (xmlHttp.readyState == 4){
             document.getElementById("preview").style.display = "none";
-            document.getElementById("editor").style.display = "block";
+            document.getElementById("editor").style.display = "";
             if(xmlHttp.status == 200) editor.setValue(xmlHttp.responseText);
             else editor.setValue("");
             editor.clearSelection();
@@ -696,37 +746,8 @@
             xmlHttp.send(null);
         }
   
-        if(lang !== "plain") editor.getSession().setMode("ace/mode/"+lang);
-        editor.setTheme("ace/theme/"+theme);
-        editor.$blockScrolling = Infinity;
-        editor.getSession().setUseSoftTabs(true);
-        editor.getSession().setTabSize(2);
-        editor.setHighlightActiveLine(true);
-        editor.setShowPrintMargin(false);
-        editor.commands.addCommand({
-            name: 'saveCommand',
-            bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
-            exec: function(editor) {
-              editor.saveFile();
-            },
-            readOnly: false
-        });
-        editor.commands.addCommand({
-            name: 'undoCommand',
-            bindKey: {win: 'Ctrl-Z',  mac: 'Command-Z'},
-            exec: function(editor) {
-              editor.getSession().getUndoManager().undo(false);
-            },
-            readOnly: false
-        });
-        editor.commands.addCommand({
-            name: 'redoCommand',
-            bindKey: {win: 'Ctrl-Shift-Z',  mac: 'Command-Shift-Z'},
-            exec: function(editor) {
-              editor.getSession().getUndoManager().redo(false);
-            },
-            readOnly: false
-        });
+        editor.setMode(prismMode(lang));
+        editor.onSave(function(){ editor.saveFile(); });     // Ctrl+S (Cmd+S); undo and redo are the browser's
         httpGet(file);
         // The bar above the editor: the open file, whether it has unsaved changes, Save and Discard changes.
         editor.updateBar = function(){
@@ -739,6 +760,8 @@
         };
         editor.saveFile = function(){
           if(tail || !file) return;
+          var problem = jsonProblem(file, editor.getValue());
+          if(problem && !confirm(file + " isn't valid JSON: " + problem + ".\n\nSave it anyway?")) return;
           httpPost(file, editor.getValue() + "", type);
         };
         document.getElementById("editbar-save").onclick = function(){ editor.saveFile(); };
@@ -753,7 +776,7 @@
           file = filename;
           tail = true;
           editor.setReadOnly(true);
-          editor.getSession().setMode("ace/mode/text");
+          editor.setMode(null);
           httpGet(file + "?textpos=-" + TEXT_OPEN_LIMIT);
           showMessage(filename + " is " + sizeText(size) + ": showing its last " + sizeText(TEXT_OPEN_LIMIT) +
                       ", read-only. Download it (right-click) for the whole file.");
@@ -766,7 +789,7 @@
           file = filename;
           lang = getLangFromFilename(file);
           type = "text/"+lang;
-          if(lang !== "plain") editor.getSession().setMode("ace/mode/"+lang);
+          editor.setMode(prismMode(lang));
           httpGet(file);
         }
         return editor;
@@ -779,7 +802,9 @@
         createFileUploader("uploader", tree, editor);
       };
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js" type="text/javascript" charset="utf-8"></script>
+    <!-- The text editor: Prism colours (MIT) and codearea.js, served by the device: nothing from the internet -->
+    <script src="prism.min.js"></script>
+    <script src="codearea.js"></script>
   </head>
   <body onload="onBodyLoad();">
     <nav id="iotanav"></nav>
