@@ -5,7 +5,8 @@ also contains the components below, under their own licences. Their notices and 
 the versions the build uses (`Firmware/platformio.ini`).
 
 **Source code.** The complete corresponding source of a release is this repository at the release's tag, with the
-libraries at the versions `Firmware/platformio.ini` pins (PlatformIO downloads them). [README.md](README.md#building)
+packages and libraries at the exact versions `Firmware/platformio.ini` pins and `Firmware/dependencies.lock` records
+with their SHA-256 (PlatformIO downloads them; the build checks them). [README.md](README.md#building)
 says how to build it, so the firmware can be rebuilt and relinked with modified versions of any of these components.
 
 The web interface loads nothing from the internet: every file it uses is in the firmware.

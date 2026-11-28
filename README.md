@@ -74,6 +74,12 @@ To build it yourself, see [Building](#building).
     pio run -e core3            # the firmware: .pio/build/core3/firmware.bin
     pio test -e native          # the host tests
 
+The build uses exact versions of everything it downloads: the platform's packages and the libraries are
+pinned in `platformio.ini` (git dependencies by commit), and `dependencies.lock` holds the SHA-256 of each
+of them and of the vendored web files. Every build checks it first and stops if anything differs.
+`scripts/lock_check.py` says how to record a deliberate version change. CI installs PlatformIO from
+`requirements-ci.txt` (exact versions, checked hashes) and uses GitHub Actions pinned by commit.
+
 `Firmware/test/README.md` describes the tests.
 
 ## Integrations

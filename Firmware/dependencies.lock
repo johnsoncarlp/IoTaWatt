@@ -1,0 +1,120 @@
+{
+  "envs": {
+    "core3": {
+      "libraries": {
+        "ArduinoJson": {
+          "sha256": "5a4d8af4f0c4ba8d72077855986e9e0aa23582b64368cf3cb98037612b334c6a",
+          "version": "7.4.3"
+        },
+        "Crypto": {
+          "sha256": "76f1ee626f39cb3c56d0f7acbbdad7daf41bd502d415a553afeb4a05315bd30d",
+          "version": "0.4.0"
+        },
+        "ESPAsyncTCP": {
+          "sha256": "8bffede84efc2ab347bd944aa2e302d13c513b831f8d54127ce743115addfadd",
+          "version": "2.0.0"
+        },
+        "Unity": {
+          "sha256": "8a94c0d8c34fd558dd47db0a2f768d32316136d3f3544bf3b907e041dfcea61c",
+          "version": "2.6.1"
+        },
+        "WiFiManager": {
+          "sha256": "452fb38ca2b452d352727848c8a6d222298a0d4d512f9db45bce4c076cb8b2ec",
+          "version": "2.0.17"
+        },
+        "asyncHTTPrequest": {
+          "sha256": "e7a907d642b1032f5b6af50de3e542c717136624dcecb24d1e24fd63c71846be",
+          "version": "1.2.2"
+        }
+      },
+      "packages": {
+        "framework-arduinoespressif8266": {
+          "sha256": "91924694e24831bbe5081729d3a5be6956af02bbdadabf8073e77a35a08126d2",
+          "version": "3.30102.0"
+        },
+        "tool-esptool": {
+          "sha256": "7bdfb335a1b376c127a36d440242d2d30296d49bd7feca60e59585ff74dcb64b",
+          "version": "1.413.0"
+        },
+        "tool-esptoolpy": {
+          "sha256": "6dbdc6f5940cb9636682fef90197829d3bcdbc396a2ee0112a21fcafcb222338",
+          "version": "1.30000.201119"
+        },
+        "toolchain-xtensa": {
+          "sha256": "b92868b7bf12a4d64efe39f157cdd29c6d83e0dc884907498b8e7de72b1278f0",
+          "version": "2.100300.220621"
+        }
+      }
+    },
+    "iotawatt": {
+      "libraries": {
+        "ArduinoJson": {
+          "sha256": "5a4d8af4f0c4ba8d72077855986e9e0aa23582b64368cf3cb98037612b334c6a",
+          "version": "7.4.3"
+        },
+        "Crypto": {
+          "sha256": "76f1ee626f39cb3c56d0f7acbbdad7daf41bd502d415a553afeb4a05315bd30d",
+          "version": "0.4.0"
+        },
+        "ESPAsyncTCP": {
+          "sha256": "3317a9b9806430de0712f60fc59bef7678d02e5a649aa07463f418dc38b7342f",
+          "version": "1.2.2"
+        },
+        "Unity": {
+          "sha256": "8a94c0d8c34fd558dd47db0a2f768d32316136d3f3544bf3b907e041dfcea61c",
+          "version": "2.6.1"
+        },
+        "WiFiManager": {
+          "sha256": "dcfd2621ff95c177b1c4c002071a493e6d79b759a67e1e84403ed8f414bf2f7d",
+          "version": "0.16.0"
+        },
+        "asyncHTTPrequest": {
+          "sha256": "e7a907d642b1032f5b6af50de3e542c717136624dcecb24d1e24fd63c71846be",
+          "version": "1.2.2"
+        }
+      },
+      "packages": {
+        "framework-arduinoespressif8266": {
+          "sha256": "79abcb1b5f5d100e658a7b1ac08ffc874279d1337d2146c9d075109c6a37c6d9",
+          "version": "3.20603.200130"
+        },
+        "tool-esptool": {
+          "sha256": "7bdfb335a1b376c127a36d440242d2d30296d49bd7feca60e59585ff74dcb64b",
+          "version": "1.413.0"
+        },
+        "tool-esptoolpy": {
+          "sha256": "988627a33203c00dbdd08768b824a014b49e4aa83d4b28e499abf693084a536f",
+          "version": "1.20800.0"
+        },
+        "toolchain-xtensa": {
+          "sha256": "93241788a539af029b7cfdcea7220aebba028deb3d77e518b3acd3e7d82969c0",
+          "version": "2.40802.200502"
+        }
+      }
+    },
+    "native": {
+      "libraries": {
+        "ArduinoJson": {
+          "sha256": "5a4d8af4f0c4ba8d72077855986e9e0aa23582b64368cf3cb98037612b334c6a",
+          "version": "7.4.3"
+        },
+        "Crypto": {
+          "sha256": "76f1ee626f39cb3c56d0f7acbbdad7daf41bd502d415a553afeb4a05315bd30d",
+          "version": "0.4.0"
+        },
+        "Unity": {
+          "sha256": "8a94c0d8c34fd558dd47db0a2f768d32316136d3f3544bf3b907e041dfcea61c",
+          "version": "2.6.1"
+        }
+      },
+      "packages": {}
+    }
+  },
+  "vendored": {
+    "bootstrap.min.css": "60a6897ad1b20346a586d8c8edcc29d4b209d01f02dd96bd58a7488b3c2adcb7",
+    "bootstrap.min.js": "77e663c6ce109efc8c496c456705ef06bd645ee913de3a4ce58b0b8649c8e454",
+    "prism.min.js": "250987c409670b7ec33d956b1180cd1111c3d0e886774f4c69865dbc25d495fa",
+    "uplot.min.css": "d249bd843aecef7fc88bfb94ea3ea41e63f10c0fb94ad99aa75f25b11a442561",
+    "uplot.min.js": "c0fb0c8038e0d4b5da617af1d7892413c85b6378a28d832066099305703aa890"
+  }
+}

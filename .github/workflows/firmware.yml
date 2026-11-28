@@ -11,18 +11,19 @@ jobs:
       run:
         working-directory: Firmware
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      # Actions by commit (a tag can be moved); the tag is in the comment.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1        # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0    # v7
         with:
           python-version: "3.12"
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9           # v6
         with:
           path: ~/.platformio
-          key: pio-${{ hashFiles('Firmware/platformio.ini') }}
-      - name: Install PlatformIO
-        run: pip install platformio
+          key: pio-${{ hashFiles('Firmware/platformio.ini', 'Firmware/dependencies.lock') }}
+      - name: Install PlatformIO (exact versions, checked hashes)
+        run: pip install --require-hashes -r requirements-ci.txt
       - name: Host unit tests (sanitizers on)
-        run: pio test -e native
+        run: pio test -e native                    # every build checks dependencies.lock first
       - name: Build device firmware (core 3.1.2)
         run: pio run -e core3
       - name: Build device firmware (original core 2.6)
